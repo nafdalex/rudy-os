@@ -1,0 +1,9 @@
+{
+  "_comment": "Settings → General hero card. Edited here and fetched by the app at runtime, so plan copy and sponsors change WITHOUT shipping a build. Data only — every field renders as escaped text, never as markup. Unknown fields are ignored; anything malformed falls back to the app's built-in defaults. URLs must be https.",
+  "plan": {
+    "label": "Local",
+    "blurb": "Every agent runs on your machine, in your folders, under your own keys. No seat limit, nothing metered."
+  },
+  "sponsor": null,
+  "notice": null
+}

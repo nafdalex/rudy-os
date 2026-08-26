@@ -4,7 +4,7 @@
 
 # Rudy OS
 
-**Free, open source agent office.** It wraps the CLI coding agent you already
+**Free agent office.** It wraps the CLI coding agent you already
 use (Claude Code, Codex, Gemini CLI, Grok, Qwen, Copilot CLI, Cursor and more)
 and runs a whole office of agents on your own machine.
 
@@ -29,7 +29,5 @@ drag Rudy OS to Applications. The app updates itself from this repository.
 ## Privacy
 
 Everything runs locally on your machine: your agents, your keys, your data.
+The app is free to download and use.
 
-## License
-
-[MIT](./LICENSE)

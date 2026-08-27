@@ -78,16 +78,7 @@
   .btn:hover { background: var(--red-fill-hover); }
   .btn.big { padding: 13px 26px; font-size: 14px; }
 
-  /* dot pattern behind the hero, masked to a soft circle, tokens swap per theme */
-  .hero-band { position: relative; }
-  .hero-band::before {
-    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.5px);
-    background-size: 16px 16px;
-    mask-image: radial-gradient(520px circle at 50% 38%, #000, transparent);
-    -webkit-mask-image: radial-gradient(520px circle at 50% 38%, #000, transparent);
-  }
-  .hero-band > * { position: relative; z-index: 1; }
+
   .hero { text-align: center; padding: 64px 0 0; }
   .hero-face { width: 72px; height: 72px; border-radius: 17px; image-rendering: pixelated; margin: 0 auto 20px; box-shadow: 0 10px 30px var(--shadow); }
   .kick { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; color: var(--red); text-transform: uppercase; margin-bottom: 22px; }

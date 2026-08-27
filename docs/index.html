@@ -449,7 +449,7 @@
   (function () {
     var saved = null;
     try { saved = localStorage.getItem('rudy-theme'); } catch (e) {}
-    var theme = saved || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    var theme = saved || 'light';
     if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
     document.getElementById('themeBtn').addEventListener('click', function () {
       var light = document.documentElement.getAttribute('data-theme') === 'light';

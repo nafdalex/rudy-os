@@ -112,30 +112,35 @@
 
   /* the office, drawn: boss, floor, and the one lane that reaches you */
   .diag { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 30px 26px 26px; margin-top: 40px; text-align: left; }
-  .diag-grid { display: grid; grid-template-columns: 1fr 150px 250px; gap: 0; align-items: stretch; }
-  .dkick { text-align: center; margin-bottom: 6px; }
-  .dkick-label { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--text-faint); text-transform: uppercase; }
+  .diag-grid { display: grid; grid-template-columns: 1fr 148px 252px; align-items: start; }
+  .dkick { height: 96px; }
+  .dkick-label { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--text-faint); text-transform: uppercase; text-align: center; }
   .dchips { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-  .dchip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 7px 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
-  .dcon { width: 2px; height: 16px; background: var(--text-faint); margin: 0 auto; position: relative; }
-  .dcon::after { content: ""; position: absolute; left: -3px; bottom: -1px; border: 4px solid transparent; border-top-color: var(--text-faint); }
-  .dlane { border: 1.5px dashed var(--line); border-radius: 12px; padding: 24px 18px 18px; position: relative; }
+  .dchip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 6px 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
+  .dband { position: relative; height: 36px; }
+  .dband svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .dband path { fill: none; stroke: var(--gold); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .dtip { position: absolute; bottom: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--gold); transform: translateX(-5px); }
+  .dlane { border: 1.5px dashed var(--line); border-radius: 12px; padding: 26px 18px 18px; position: relative; }
   .dtag { position: absolute; top: -9px; left: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 2px 11px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; }
-  .dboss { display: flex; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; width: max-content; margin: 0 auto; }
-  .dboss img { width: 36px; height: 36px; border-radius: 9px; image-rendering: pixelated; }
+  .dboss { display: flex; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; width: max-content; margin: 0 auto; position: relative; }
+  .dboss img { width: 38px; height: 38px; border-radius: 9px; image-rendering: pixelated; }
   .dboss b { font-size: 13.5px; display: block; }
   .dboss span { font-size: 11.5px; color: var(--text-dim); }
-  .dfan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .dboss .live { position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
   .dworkers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .dworker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 10px; text-align: center; }
-  .dworker img { width: 30px; height: 30px; border-radius: 8px; image-rendering: pixelated; margin: 0 auto 7px; }
+  .dworker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 10px 13px; text-align: center; }
+  .dworker img { width: 32px; height: 32px; border-radius: 8px; image-rendering: pixelated; margin: 0 auto 7px; }
   .dworker b { font-size: 12px; display: block; }
-  .dworker span { font-size: 10.5px; color: var(--text-dim); }
+  .dworker .role { font-size: 10.5px; color: var(--text-dim); display: block; margin-top: 1px; }
+  .dengine { display: inline-block; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 2px 8px; font-size: 9.5px; font-weight: 700; color: var(--text-dim); margin-top: 7px; }
+  .dskills { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 7px; }
+  .dskill { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 9px; color: var(--text-faint); }
   .dnote { border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; font-size: 11.5px; color: var(--text-dim); margin-top: 10px; }
   .dnote code { color: var(--text); font-weight: 700; font-family: var(--mono); }
   .dpill { background: var(--gold); color: #26222E; font-weight: 700; border-radius: 999px; padding: 5px 22px; width: max-content; margin: 16px auto 0; font-size: 11.5px; letter-spacing: 0.06em; }
-  .dpill.quiet { background: transparent; border: 1px solid var(--line); color: var(--text-dim); }
-  .dmid { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 0 14px; }
+  .dpill.quiet { background: transparent; border: 1px solid var(--line); color: var(--text-dim); margin-top: 12px; }
+  .dmid { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 0 14px; margin-top: 96px; min-height: 420px; }
   .dmid .lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; }
   .dmid .quote { font-size: 10.5px; color: var(--text-faint); text-align: center; }
   .darrow { position: relative; height: 2px; width: 100%; background: var(--gold); }
@@ -150,9 +155,9 @@
   .dybox .q { display: inline-block; background: #8b7bd8; color: #fff; border-radius: 4px; font-size: 10px; font-weight: 700; padding: 0 5px; }
   @media (max-width: 860px) {
     .diag-grid { grid-template-columns: 1fr; }
-    .dmid { padding: 18px 0; }
+    .dmid { margin-top: 0; min-height: 0; padding: 20px 0; }
     .darrow, .darrow.back { width: 60%; }
-    .dyou { margin-top: 0; }
+    .dyou { margin-top: 14px; }
   }
 
   .kit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
@@ -255,16 +260,32 @@
         <div class="dkick">
           <div class="dkick-label">kick it off from anywhere</div>
           <div class="dchips"><span class="dchip">YOU</span><span class="dchip">SCHEDULES</span><span class="dchip">WEBHOOKS</span></div>
-          <div class="dcon" style="height:20px;"></div>
+          <div class="dband">
+            <svg viewBox="0 0 300 36" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M 75 0 C 75 22, 150 14, 150 34"/>
+              <path d="M 150 0 C 150 18, 150 18, 150 34"/>
+              <path d="M 225 0 C 225 22, 150 14, 150 34"/>
+            </svg>
+            <span class="dtip" style="left:50%;"></span>
+          </div>
         </div>
         <div class="dlane">
           <span class="dtag">the office · your mac</span>
-          <div class="dboss"><img src="/media/cast/hire-rudy.png" alt="Rudy" width="36" height="36"><span><b>RUDY · the boss</b><span>triages · writes the cards · routes the work</span></span></div>
-          <div class="dfan"><span class="dcon"></span><span class="dcon"></span><span class="dcon"></span></div>
+          <div class="dboss"><span class="live"></span><img src="/media/cast/hire-rudy.png" alt="Rudy" width="38" height="38"><span><b>RUDY · the boss</b><span>triages · writes the cards · routes the work</span></span></div>
+          <div class="dband">
+            <svg viewBox="0 0 300 36" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M 150 2 C 150 20, 50 16, 50 34"/>
+              <path d="M 150 2 C 150 18, 150 18, 150 34"/>
+              <path d="M 150 2 C 150 20, 250 16, 250 34"/>
+            </svg>
+            <span class="dtip" style="left:16.66%;"></span>
+            <span class="dtip" style="left:50%;"></span>
+            <span class="dtip" style="left:83.33%;"></span>
+          </div>
           <div class="dworkers">
-            <div class="dworker"><img src="/media/cast/hire-theo.png" alt="Theo" width="30" height="30"><b>Theo · frontend</b><span>Claude Code</span></div>
-            <div class="dworker"><img src="/media/cast/hire-mara.png" alt="Mara" width="30" height="30"><b>Mara · backend</b><span>Codex</span></div>
-            <div class="dworker"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="30" height="30"><b>Ravi · search</b><span>Gemini CLI</span></div>
+            <div class="dworker"><img src="/media/cast/hire-theo.png" alt="Theo" width="32" height="32"><b>Theo</b><span class="role">frontend</span><span class="dengine">▸ Claude Code</span><span class="dskills"><span class="dskill">design-tokens</span><span class="dskill">contrast-pass</span></span></div>
+            <div class="dworker"><img src="/media/cast/hire-mara.png" alt="Mara" width="32" height="32"><b>Mara</b><span class="role">backend</span><span class="dengine">▸ Codex</span><span class="dskills"><span class="dskill">payments</span><span class="dskill">orders-api</span></span></div>
+            <div class="dworker"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="32" height="32"><b>Ravi</b><span class="role">search</span><span class="dengine">▸ Gemini CLI</span><span class="dskills"><span class="dskill">search-index</span><span class="dskill">typo-tuning</span></span></div>
           </div>
           <div class="dnote"><code>git</code> · each hire works in its own isolated worktree, Rudy integrates the branches</div>
           <div class="dnote"><code>memory</code> · plain markdown every agent keeps, semantic recall included</div>

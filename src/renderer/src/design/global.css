@@ -1,0 +1,568 @@
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* The app is a fixed cream/light design. Without declaring it, Chromium on a
+   dark-mode OS styles form controls with the DARK UA scheme — most visibly a
+   white (invisible) text caret on our cream textareas. */
+:root { color-scheme: light; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  background: var(--cth-cream-100);
+  color: var(--cth-ink-900);
+  font-family: var(--cth-font-ui);
+  font-size: var(--cth-text-body-md);
+  line-height: var(--cth-lh-body-md);
+  overflow: hidden;
+}
+
+body {
+  /* a faint pixel dot grid (the brand is pixels, not pinstripes). Pure CSS, no
+     images; the dot colour is the ink at low alpha so it survives the theme swap. */
+  background-image: radial-gradient(var(--cth-grid-dot) 1px, transparent 1px);
+  background-size: 10px 10px;
+  background-position: 5px 5px;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Belt + suspenders for the caret: follow the ink, never the UA scheme. */
+input, textarea { caret-color: var(--cth-ink-900); }
+
+/* The MOUSE text-select pointer (the I-beam) is a different beast from the
+   caret: it comes from the OS cursor scheme, which `color-scheme` can't touch.
+   On Windows several schemes (and HiDPI variants) draw it white with a hairline
+   outline — invisible hovering over our cream inputs. Replace it with our own
+   inked I-beam wearing a cream halo, so it reads on cream AND on the dark
+   terminal. Falls back to the UA `text` cursor if SVG cursors are unavailable. */
+input, textarea, [contenteditable='true'] {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='18'><g fill='none' stroke='%23fdf6e3' stroke-width='4' stroke-linecap='round'><path d='M5 2.5h7M8.5 3v12M5 15.5h7'/></g><g fill='none' stroke='%23261d31' stroke-width='1.6' stroke-linecap='round'><path d='M5 2.5h7M8.5 3v12M5 15.5h7'/></g></svg>") 8 9, text;
+}
+
+/* Command Center tab bar scrolls horizontally when it overflows a narrow
+   sidebar; hide the scrollbar (overlay on mac, hidden elsewhere) — scroll with
+   trackpad / Shift+wheel, like a browser tab strip. */
+.cth-tabbar { scrollbar-width: none; -ms-overflow-style: none; }
+.cth-tabbar::-webkit-scrollbar { height: 0; display: none; }
+
+/* Same treatment for a vertical list (the fullscreen agent roster): still
+   scrollable by wheel/trackpad, but the bar itself never takes a slice out of an
+   already narrow rail. */
+.cth-scroll-hidden { scrollbar-width: none; -ms-overflow-style: none; }
+.cth-scroll-hidden::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Pixel-snapping for any rasterised content */
+canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* Focus ring — 2px outer offset, ink */
+:focus-visible {
+  outline: 1px solid var(--cth-ink-300);
+  outline-offset: 2px;
+}
+
+/* Text inputs — resting border faint, focused border dark and thicker.
+   The resting 1px ink-100 is deliberately quiet so a panel full of boxes stays
+   calm, but that left NOTHING saying which box has the keyboard: these inputs
+   set `outline: none` (the global focus ring above sits OUTSIDE the inset
+   border and reads as detached from it), so the browser's own signal was gone
+   too. Focus now darkens and thickens the inset border instead.
+
+   Inset, so 1px to 2px changes no geometry and the text does not shift when you
+   click into the box. Both :focus and :focus-visible: a textarea you clicked
+   into is exactly as focused as one you tabbed into, and here we WANT the mouse
+   case — it is the one the founder is looking at while typing. */
+.cth-input { box-shadow: inset 0 0 0 1px var(--cth-ink-100); }
+.cth-input:focus,
+.cth-input:focus-visible { box-shadow: inset 0 0 0 2px var(--cth-ink-700); }
+
+/* Scrollbar: slim and quiet, no track, only a soft thumb that darkens on hover */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--cth-ink-100);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--cth-ink-300); }
+
+/* The terminal manages its own scrollback; xterm's viewport scrollbar draws over
+   the WebGL canvas and smears during fast redraws, so it is gone entirely. */
+.xterm-viewport { scrollbar-width: none; -ms-overflow-style: none; }
+.xterm-viewport::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* commit-graph (open-source git visualiser) — harmonise with the pixel theme */
+/* Commit history. The `* { font-family: … !important }` blanket that used to live
+   here existed to reach inside the third-party commit-graph widget; the rows are
+   ours now, so fonts are set per element and the override would only fight the
+   monospace on hashes and timestamps. */
+.cth-commit-graph {
+  background: var(--cth-paper-100);
+  font-family: var(--cth-font-ui);
+  color: var(--cth-ink-900);
+}
+/* Row hover — the whole line is the click target for opening a commit. */
+.cth-commit-graph > div:hover { background: var(--cth-cream-200); }
+
+/* Drag region for hidden inset title bar (mac) */
+.cth-titlebar-drag { -webkit-app-region: drag; }
+.cth-titlebar-nodrag { -webkit-app-region: no-drag; }
+
+/* In-app tooltip for title-bar controls.
+   The native `title` attribute does not reliably render on buttons inside the
+   hiddenInset title bar, so those labels were correct in the markup and simply
+   invisible in the running app. CSS-only on purpose: no state, no re-render, and
+   nothing for the drag region to swallow. Usage: className="cth-tip"
+   data-tip="…". Keep aria-label for screen readers; drop `title` so a native
+   tooltip can never double up on this one. */
+.cth-tip { position: relative; }
+.cth-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  white-space: nowrap;
+  padding: 3px 7px 2px;
+  font-family: var(--cth-font-ui);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--cth-cream-100);
+  background: var(--cth-ink-900);
+  box-shadow: inset 0 0 0 1px var(--cth-ink-700);
+  opacity: 0;
+  pointer-events: none;
+  /* Delay matches the native tooltip feel, so it does not flash while the
+     pointer is just crossing the title bar on its way somewhere else. */
+  transition: opacity 90ms ease-out 400ms;
+  z-index: 100;
+}
+.cth-tip:hover::after,
+.cth-tip:focus-visible::after { opacity: 1; }
+
+/* Left-anchored variant, for a tip on a control that is NOT near the right edge
+   — the default right:0 would run the bubble off toward the sidebar. */
+.cth-tip-left::after { left: 0; right: auto; }
+
+/* Wrapping variant. `nowrap` is right for a two-word title-bar hint and wrong
+   for a sentence that has to say what a button actually does: at 60+ characters
+   a nowrap bubble is wider than the panel it explains. */
+.cth-tip-wrap::after {
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  line-height: 15px;
+}
+
+/* Settings (gear) button in the title bar — a clear bordered chip with a
+   neo-brutalist hover (lemon fill + offset shadow) so it reads as a button. */
+.cth-settings-btn { transition: background 80ms steps(2), box-shadow 80ms steps(2), transform 80ms steps(2); }
+.cth-settings-btn:hover {
+  background: var(--cth-lemon) !important;
+  box-shadow: inset 0 0 0 1px var(--cth-ink-300), 2px 2px 0 0 var(--cth-ink-900) !important;
+  transform: translate(-1px, -1px);
+}
+.cth-settings-btn:active {
+  transform: translate(0, 0);
+  box-shadow: inset 0 0 0 1px var(--cth-ink-300) !important;
+}
+
+/* Keyframes — pixel-style: step-based, no easing */
+@keyframes cth-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes cth-pulse {
+  0%, 49% { transform: scale(1); }
+  50%, 100% { transform: scale(0.7); }
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0s !important; transition-duration: 0s !important; }
+}
+
+/* xterm: disable font ligatures.
+ * Some browsers (e.g. Firefox 130+) treat sequences like "ff"/"ft"/"fi" as
+ * ligatures, which breaks xterm's per-char width measuring: an "f" gets measured
+ * too narrow and renders with a trailing gap ("f or" instead of "for"). Forcing
+ * ligatures off on both the measure container and the rendered rows keeps the
+ * monospace grid correct. See xtermjs/xterm.js#5156. */
+.xterm,
+.xterm-rows,
+.xterm-width-cache-measure-container {
+  font-variant-ligatures: none !important;
+  font-feature-settings: "liga" 0, "clig" 0, "calt" 0 !important;
+}
+
+/* ─── Markdown preview (v0.3.4) ──────────────────────────────────────────────
+   Shared by the IDE split/preview view and the fullscreen file overlay. All
+   colors ride the tokens, so light + dark themes come for free. */
+.cth-md-preview {
+  font-family: var(--cth-font-ui);
+  font-size: 14px; line-height: 1.65;
+  color: var(--cth-ink-900);
+  max-width: 72ch;
+  padding: 16px 20px 32px;
+}
+.cth-md-preview h1, .cth-md-preview h2, .cth-md-preview h3,
+.cth-md-preview h4, .cth-md-preview h5 {
+  color: var(--cth-ink-900);
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+.cth-md-preview h1 { font-size: 24px; border-bottom: 1px solid var(--cth-ink-100); padding-bottom: 6px; }
+.cth-md-preview h2 { font-size: 19px; border-bottom: 1px solid var(--cth-ink-100); padding-bottom: 4px; }
+.cth-md-preview h3 { font-size: 16px; }
+.cth-md-preview h4 { font-size: 14px; }
+.cth-md-preview p { margin: 0.6em 0; }
+.cth-md-preview a { color: var(--cth-sky); }
+.cth-md-preview code {
+  font-family: var(--cth-font-mono); font-size: 12.5px;
+  background: var(--cth-cream-200); padding: 1px 5px; border-radius: 2px;
+}
+.cth-md-preview pre {
+  background: var(--cth-cream-200);
+  box-shadow: inset 0 0 0 1px var(--cth-ink-100);
+  padding: 10px 12px; overflow-x: auto; border-radius: 2px;
+}
+.cth-md-preview pre code { background: transparent; padding: 0; }
+.cth-md-preview blockquote {
+  margin: 0.8em 0; padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--cth-ink-300); color: var(--cth-ink-700);
+}
+.cth-md-preview ul, .cth-md-preview ol { padding-left: 22px; margin: 0.5em 0; }
+.cth-md-preview li { margin: 3px 0; }
+.cth-md-preview li::marker { color: var(--cth-ink-500); }
+.cth-md-preview input[type="checkbox"] { accent-color: var(--cth-mint); margin-right: 6px; }
+.cth-md-preview table {
+  border-collapse: collapse; margin: 0.8em 0; display: block; overflow-x: auto;
+}
+.cth-md-preview th, .cth-md-preview td {
+  border: 1px solid var(--cth-ink-100); padding: 5px 10px; text-align: left;
+  font-size: 13px;
+}
+.cth-md-preview th { background: var(--cth-cream-200); font-weight: 600; }
+.cth-md-preview hr { border: none; border-top: 1px solid var(--cth-ink-100); margin: 1.4em 0; }
+/* Real (local) images inside rendered markdown. `max-width: 100%` is the whole
+   trick: agent screenshots are routinely 3000px wide and would otherwise force
+   a horizontal scrollbar on the entire preview pane. The hairline gives a light
+   screenshot an edge against the paper background so it doesn't bleed away. */
+.cth-md-preview .cth-md-image {
+  display: block; max-width: 100%; height: auto; margin: 0.6em 0;
+  box-shadow: inset 0 0 0 1px var(--cth-ink-100);
+  border-radius: 2px;
+}
+.cth-md-preview .cth-md-img {
+  display: inline-block; padding: 2px 8px; font-size: 12px;
+  background: var(--cth-cream-200); box-shadow: inset 0 0 0 1px var(--cth-ink-100);
+  color: var(--cth-ink-500); border-radius: 2px;
+}
+
+/* ── Onboarding (first run) ──────────────────────────────────────────────────
+   A split frame: a fixed dark burgundy rail (logo, step list, Rudy) beside the
+   current screen. The rail is the same in both themes on purpose; everything
+   to its right follows the tokens. */
+/* The top padding keeps the panel clear of the macOS traffic lights, which sit
+   over this overlay (the window is titleBarStyle: hiddenInset) on their own
+   dark band. */
+.cth-onb-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; overflow: auto; padding: 52px 28px 20px;
+  background: var(--cth-cream-100);
+  background-image: radial-gradient(var(--cth-grid-dot) 1px, transparent 1px);
+  background-size: 10px 10px; background-position: 5px 5px;
+}
+.cth-onb-topband {
+  position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 201;
+  background: #111111;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+.cth-onb-frame {
+  margin: auto; width: min(1000px, 100%); height: min(742px, calc(100vh - 76px));
+  display: grid; grid-template-columns: 248px minmax(0, 1fr);
+  background: var(--cth-paper-100);
+  box-shadow: inset 0 0 0 1px var(--cth-ink-500), 6px 6px 0 rgba(28, 20, 24, 0.18);
+  /* The panel is a FIXED box: same size on every step. Both children get
+     `min-height: 0` below, because a grid child defaults to min-height:auto and
+     refuses to shrink under its content, which let the right column grow past
+     the frame and drag the rail down with it. */
+  overflow: hidden;
+}
+.cth-onb-rail {
+  min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 22px; padding: 22px 20px;
+  background: #111111;
+  color: #E8E6E3;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+}
+.cth-onb-rail-top { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+.cth-onb-rail-kicker { font-family: var(--cth-font-ui); font-weight: 700; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(232, 230, 227, 0.6); }
+.cth-onb-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.cth-onb-step { display: flex; align-items: center; gap: 10px; padding: 7px 8px; color: rgba(232, 230, 227, 0.55); }
+.cth-onb-step-num {
+  width: 22px; height: 22px; display: grid; place-items: center; flex-shrink: 0;
+  font-family: var(--cth-font-ui); font-weight: 700; font-size: 11px;
+  background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.cth-onb-step-label { font-size: 12px; font-weight: 500; }
+.cth-onb-step.is-current { color: #FFFFFF; background: rgba(255, 255, 255, 0.07); box-shadow: inset 3px 0 0 #E5484D; }
+.cth-onb-step.is-current .cth-onb-step-num { background: #E5484D; color: #FFFFFF; box-shadow: none; }
+.cth-onb-step.is-done { color: rgba(232, 230, 227, 0.85); }
+.cth-onb-step.is-done .cth-onb-step-num { background: rgba(114, 190, 149, 0.25); color: #B9E8CB; box-shadow: inset 0 0 0 1px rgba(185, 232, 203, 0.5); }
+.cth-onb-rail-rudy { margin-top: auto; display: flex; gap: 12px; align-items: flex-end; }
+.cth-onb-rudy-frame {
+  width: 70px; height: 92px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  /* The caramel identity tile — Rudy wears the same ground here as at the
+     desk, on the floor, and on the app icon. */
+  background: #F2ECE4; border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+.cth-onb-rudy-name { font-family: var(--cth-font-display); font-size: 10px; color: #E5484D; margin-bottom: 4px; }
+.cth-onb-rudy-role { font-size: 12px; line-height: 16px; color: rgba(232, 230, 227, 0.78); }
+
+.cth-onb-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.cth-onb-head { padding: 26px 30px 0; flex-shrink: 0; }
+.cth-onb-eyebrow { font-family: var(--cth-font-ui); font-weight: 700; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cth-ink-500); margin-bottom: 10px; }
+.cth-onb-title { margin: 0; font-family: var(--cth-font-display); font-size: 11px; line-height: 18px; color: var(--cth-ink-900); }
+.cth-onb-body { flex: 1; min-height: 0; padding: 16px 30px 8px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.cth-onb-lede { margin: 0; font-size: 12.5px; line-height: 19px; color: var(--cth-ink-700); max-width: 64ch; }
+.cth-onb-lede strong { color: var(--cth-ink-900); }
+.cth-onb-muted { color: var(--cth-ink-500); }
+.cth-onb-label { font-family: var(--cth-font-ui); font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cth-ink-700); margin-top: 6px; }
+.cth-onb-hint { font-size: 12px; line-height: 17px; color: var(--cth-ink-500); }
+.cth-onb-icon {
+  width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-300);
+}
+.cth-onb-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cth-onb-field { display: flex; flex-direction: column; gap: 6px; }
+
+.cth-onb-perks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cth-onb-perk { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 6px; }
+.cth-onb-perk-label { font-family: var(--cth-font-display); font-size: 9px; line-height: 13px; margin-bottom: 4px; color: var(--cth-ink-900); }
+.cth-onb-perk-desc { font-size: 12px; line-height: 16px; color: var(--cth-ink-700); }
+
+.cth-onb-roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cth-onb-role {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: left; padding: 10px; cursor: pointer; border: none;
+  background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-300); color: var(--cth-ink-900);
+}
+.cth-onb-role:hover { background: var(--cth-cream-100); box-shadow: inset 0 0 0 1px var(--cth-ink-500); }
+.cth-onb-role.is-on { background: var(--cth-lemon-light); box-shadow: inset 0 0 0 2px var(--cth-lemon); }
+.cth-onb-role-label { font-size: 13px; font-weight: 600; }
+.cth-onb-role-hint { font-size: 11.5px; color: var(--cth-ink-500); }
+.cth-onb-check { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; line-height: 17px; color: var(--cth-ink-700); cursor: pointer; }
+.cth-onb-check input { margin-top: 2px; width: 15px; height: 15px; flex-shrink: 0; }
+
+/* Ten-plus engines have to sit in one calm block: three uniform columns, a
+   fixed tile height so every row lines up, and a cap with its own scroll so the
+   grid can never push the MODEL row or the footer off the panel. */
+.cth-onb-engines {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  /* Never shrink: as a flex child of the body it would otherwise be squeezed
+     and clip its last row mid-tile, which reads as a rendering bug. */
+  flex-shrink: 0;
+}
+/* Each engine is a two-line card on a four-column grid:
+     logo | NAME  | status | radio
+          | blurb | badge  |
+   so the name and the blurb start on the same left edge and the status and the
+   ribbon stack on the same right edge. Two columns (not three) buys enough
+   width that no name or blurb ever has to truncate. */
+.cth-onb-engine {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) 12px;
+  column-gap: 9px; row-gap: 1px; align-items: center; text-align: left;
+  padding: 9px 11px; cursor: pointer; border: none; height: 56px;
+  background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-300); color: var(--cth-ink-900);
+}
+.cth-onb-engine > .cth-onb-engine-logo { grid-column: 1; grid-row: 1 / 3; }
+.cth-onb-engine > .cth-onb-engine-name { grid-column: 2; grid-row: 1; }
+.cth-onb-engine > .cth-onb-radio { grid-column: 3; grid-row: 1 / 3; }
+.cth-onb-engine > .cth-onb-engine-blurb { grid-column: 2 / 4; grid-row: 2; }
+/* The recommendation is stated once, in the copy above the grid. Here it is a
+   quiet lemon edge: a word inside the tile crowded the blurb it sat against. */
+.cth-onb-engine.is-rec { box-shadow: inset 0 0 0 1px var(--cth-ink-300), inset 3px 0 0 var(--cth-lemon); }
+.cth-onb-engine.is-rec.is-on { box-shadow: inset 0 0 0 2px var(--cth-mint), inset 3px 0 0 var(--cth-lemon); }
+/* An engine this Mac cannot run yet simply reads quieter. No chip, no label:
+   picking one still works and the strip underneath says what has to happen. */
+.cth-onb-engine.is-off .cth-onb-engine-name,
+.cth-onb-engine.is-off .cth-onb-engine-blurb { color: var(--cth-ink-300); }
+.cth-onb-engine.is-off .cth-onb-engine-logo { opacity: 0.45; }
+.cth-onb-engine.is-off.is-on .cth-onb-engine-name { color: var(--cth-ink-700); }
+.cth-onb-engine:hover { background: var(--cth-cream-100); box-shadow: inset 0 0 0 1px var(--cth-ink-500); }
+.cth-onb-engine.is-on { background: var(--cth-mint-light); box-shadow: inset 0 0 0 2px var(--cth-mint); }
+.cth-onb-engine-logo { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+/* Inter, not the pixel face, for engine names. Press Start 2P is ~1 em per
+   glyph, so "Antigravity" alone overran a third-width tile and every name came
+   out truncated. The pixel face stays on the section labels and the titles. */
+.cth-onb-engine-name {
+  font-family: var(--cth-font-ui); font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px;
+}
+.cth-onb-radio { width: 12px; height: 12px; flex-shrink: 0; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--cth-ink-300); background: var(--cth-paper-100); }
+.cth-onb-radio.is-on { background: var(--cth-mint); box-shadow: inset 0 0 0 2px var(--cth-paper-100), 0 0 0 1.5px var(--cth-mint); }
+.cth-onb-engine-blurb {
+  font-size: 11.5px; line-height: 17px; color: var(--cth-ink-500); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cth-onb-ribbon { font-family: var(--cth-font-ui); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; line-height: 14px; padding: 2px 5px 3px; background: var(--cth-lemon); color: var(--cth-on-accent); flex-shrink: 0; }
+/* One status dot, on the strip, for the engine you actually picked. Eleven
+   repeated chips in the grid drew the eye before the engine names did. */
+.cth-onb-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--cth-ink-300); }
+.cth-onb-dot.is-ok { background: var(--cth-mint); }
+.cth-onb-dot.is-soon { background: var(--cth-lemon); }
+.cth-onb-dot.is-bad { background: var(--cth-coral); }
+.cth-onb-dot.is-quiet { background: var(--cth-ink-100); }
+.cth-onb-modelrow { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+/* The model picker. A bare <select> renders macOS' own chrome: a blue-tinted
+   double arrow parked at the far right edge of the control, miles from the
+   value it belongs to and nothing like the rest of this UI. Draw our own
+   chevron, sit it right beside the text, and let the control size to content. */
+.cth-onb-select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--cth-font-mono); font-size: 13px; line-height: 18px; color: var(--cth-ink-900);
+  padding: 6px 30px 6px 10px; border: none; outline: none; cursor: pointer;
+  background-color: var(--cth-paper-100);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231C1418' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  box-shadow: inset 0 0 0 1px var(--cth-ink-300);
+  max-width: 320px;
+}
+.cth-onb-select:hover { box-shadow: inset 0 0 0 1px var(--cth-ink-500); }
+.cth-onb-select:focus-visible { box-shadow: inset 0 0 0 2px var(--cth-ink-900); }
+:root[data-cth-theme='dark'] .cth-onb-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23E5DDD9' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+.cth-onb-code { font-family: var(--cth-font-mono); background: var(--cth-paper-200); padding: 0 4px; }
+/* The engine-status slot. It is ALWAYS rendered at the same height, so
+   selecting an engine that is missing swaps the note for the warning without
+   moving the model row, the footer, or anything else on the panel. */
+.cth-onb-status {
+  display: flex; align-items: center; gap: 10px; min-height: 58px; flex-shrink: 0; padding: 10px 12px;
+  background: var(--cth-cream-100); box-shadow: inset 0 0 0 1px var(--cth-ink-100);
+}
+.cth-onb-status.is-warn { background: var(--cth-lemon-light); box-shadow: inset 0 0 0 2px var(--cth-lemon); }
+.cth-onb-status-text { flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: var(--cth-ink-700); }
+.cth-onb-status.is-warn .cth-onb-status-text { color: var(--cth-ink-900); }
+.cth-onb-status-acts { display: flex; gap: 6px; flex-shrink: 0; }
+
+.cth-onb-place { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--cth-cream-100); box-shadow: inset 0 0 0 1px var(--cth-ink-100); }
+.cth-onb-place-head { display: flex; gap: 10px; align-items: flex-start; }
+.cth-onb-repos { display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; }
+.cth-onb-empty { padding: 10px 12px; font-size: 12.5px; color: var(--cth-ink-500); background: var(--cth-paper-200); text-align: center; }
+.cth-onb-repo { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-100); }
+.cth-onb-repo-path { flex: 1; font-family: var(--cth-font-mono); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cth-onb-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cth-onb-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: left; padding: 10px 12px; cursor: pointer; border: none;
+  background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-300); color: var(--cth-ink-900);
+}
+.cth-onb-option:hover { box-shadow: inset 0 0 0 1px var(--cth-ink-500); }
+.cth-onb-option.is-on { background: var(--cth-mint-light); box-shadow: inset 0 0 0 2px var(--cth-mint); }
+.cth-onb-option-head { display: flex; align-items: center; gap: 9px; }
+.cth-onb-option-title { font-family: var(--cth-font-display); font-size: 10px; }
+.cth-onb-option-desc { font-size: 12px; line-height: 16px; color: var(--cth-ink-700); }
+.cth-onb-toggle .cth-onb-hint { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* One column. The duplicated "stay awake" advice card is gone and the stats
+   toggle moved to its own PRIVACY group, so the step fits at full width. */
+.cth-onb-toggles { display: flex; flex-direction: column; gap: 6px; }
+.cth-onb-toggle { display: flex; gap: 9px; align-items: flex-start; padding: 8px 10px; cursor: pointer; background: var(--cth-paper-100); box-shadow: inset 0 0 0 1px var(--cth-ink-300); }
+.cth-onb-toggle.is-on { background: var(--cth-sky-light); box-shadow: inset 0 0 0 2px var(--cth-sky); }
+.cth-onb-toggle input { width: 16px; height: 16px; margin-top: 6px; flex-shrink: 0; }
+.cth-onb-toggle .cth-onb-perk-label { color: var(--cth-ink-900); }
+.cth-onb-tip { display: flex; gap: 10px; align-items: center; padding: 10px; background: var(--cth-lemon-light); box-shadow: inset 0 0 0 1px var(--cth-ink-300); flex-shrink: 0; }
+.cth-onb-tip-text { flex: 1; min-width: 0; }
+.cth-onb-options { flex-shrink: 0; }
+.cth-onb-toggles { flex-shrink: 0; }
+
+.cth-onb-summary { display: flex; flex-direction: column; box-shadow: inset 0 0 0 1px var(--cth-ink-300); background: var(--cth-paper-100); }
+.cth-onb-sumrow { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 12px; }
+.cth-onb-sumrow + .cth-onb-sumrow { box-shadow: inset 0 1px 0 var(--cth-ink-100); }
+.cth-onb-sumlabel { font-family: var(--cth-font-display); font-size: 8px; color: var(--cth-ink-500); }
+.cth-onb-sumvalue { font-size: 13px; color: var(--cth-ink-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cth-onb-sumvalue.is-mono { font-family: var(--cth-font-mono); font-size: 12.5px; }
+.cth-onb-link { border: none; background: transparent; cursor: pointer; font-size: 12px; color: var(--cth-ink-500); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
+.cth-onb-link:hover { color: var(--cth-ink-900); }
+.cth-onb-crew { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.cth-onb-crew-member { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px 5px; border-radius: 6px; background: var(--cth-cream-100); box-shadow: inset 0 0 0 1px var(--cth-ink-100); }
+.cth-onb-crew-art { width: 40px; height: 56px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.cth-onb-crew-name { font-family: var(--cth-font-mono); font-size: 11px; color: var(--cth-ink-700); }
+
+.cth-onb-error { margin: 0 30px; flex-shrink: 0; padding: 7px 10px; font-size: 13px; background: var(--cth-coral-light); box-shadow: inset 0 0 0 1px var(--cth-coral); color: var(--cth-ink-900); overflow-wrap: anywhere; }
+.cth-onb-foot { display: flex; justify-content: space-between; align-items: center; padding: 14px 30px 22px; gap: 8px; flex-shrink: 0; }
+.cth-onb-foot-right { display: flex; gap: 8px; }
+
+@media (max-width: 760px) {
+  .cth-onb-overlay { padding: 46px 12px 12px; }
+  .cth-onb-frame { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 60px); }
+  .cth-onb-rail { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; }
+  .cth-onb-steps { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .cth-onb-step-label { display: none; }
+  .cth-onb-rail-rudy { display: none; }
+  .cth-onb-perks, .cth-onb-roles, .cth-onb-engines { grid-template-columns: 1fr 1fr; }
+  .cth-onb-crew { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .cth-onb-head, .cth-onb-body, .cth-onb-foot, .cth-onb-error { padding-left: 18px; padding-right: 18px; }
+}
+
+/* ── one button chrome, app-wide ─────────────────────────────────────────
+   The HQ bar's controls (AUTO, IDE) carry a 3px radius; every other button
+   in the app was dead square, so the two chromes read as different apps.
+   One rule rounds them all. Controls that draw their own radius (the toggle
+   pill, round dots) set it inline and win over this. */
+button { border-radius: 3px; }
+
+/* ── one dropdown + placeholder voice, app-wide ──────────────────────────
+   Selects are styled inline all over the panels, but the OS chevron and the
+   default placeholder gray never matched the theme. appearance:none kills the
+   stock arrow; the !importants win over inline `background:` shorthands that
+   would otherwise wipe the custom chevron. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  font-family: var(--cth-font-ui);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234A4A4A' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  padding-right: 24px !important;
+}
+:root[data-cth-theme='dark'] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238B8885' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E") !important;
+}
+
+/* Placeholders: always the tertiary ink, never the browser default gray that
+   vanishes in dark mode or shouts in light. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--cth-ink-500);
+  opacity: 1;
+}
+
+/* ── the dark titlebar band ──────────────────────────────────────────────
+   macOS traffic lights sit over our top bars (titleBarStyle: hiddenInset).
+   On the light theme's white bar they all but vanished, so every titlebar
+   surface is a dark band in BOTH themes — the token overrides below re-aim
+   the whole ramp locally, so children keep using tokens and just resolve
+   dark. Same trick the dark theme itself uses, scoped to one strip. */
+.cth-darkband {
+  --cth-ink-900: #E8E6E3;
+  --cth-ink-700: #B5B2AD;
+  --cth-ink-500: #8B8885;
+  --cth-ink-300: #55524F;
+  --cth-ink-100: #2A2827;
+  --cth-cream-50: #161616;
+  --cth-cream-100: #1B1B1B;
+  --cth-cream-200: #232323;
+  --cth-cream-300: #2E2E2E;
+  --cth-paper-100: #121212;
+  --cth-paper-200: #1C1C1C;
+  --cth-brand-ink: #FFFFFF;
+  --cth-brand-red: #E5484D;
+  --cth-brand-plate: #B3121B;
+}

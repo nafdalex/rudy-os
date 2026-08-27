@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Rudy OS is NOT App-Sandboxed: it spawns `claude` agents and other
+       child processes that must read/write the user's own project folders.
+       These hardened-runtime entitlements let Electron + node-pty run and let
+       the spawned agents inherit this app's TCC responsibility, so the user is
+       prompted for folder access ONCE (bound to this app), not per agent. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+  <!-- Required so the app can load the native node-pty module and spawn the
+       `claude` CLI (signed by a different team) without library-validation
+       killing the child — also keeps the app as the responsible process. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- Persist user-granted file access (the "Documents folder" grant). -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  <!-- The mic is captured via getUserMedia by two opt-in voice features: Free
+       Flow dictation and Realtime Rudy (live voice chat). Under the hardened
+       runtime this resource-access entitlement is required for mic capture; it
+       is inert unless the user turns one of those features on. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <!-- Child processes inherit the parent's sandbox/TCC context (no-op outside
+       the sandbox, harmless to include for inherited child entitlements). -->
+  <key>com.apple.security.inherit</key>
+  <true/>
+</dict>
+</plist>

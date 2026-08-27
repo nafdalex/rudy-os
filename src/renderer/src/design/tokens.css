@@ -1,0 +1,274 @@
+/* Design tokens, mirrors tokens.ts. Update both together.
+   Palette (Rudy OS, 2026-08-26): BOTH themes are terminal-neutral now — light
+   is white/gray like the Claude Code light UI, dark is the terminal grays.
+   The old warm linen light theme was the last place the inherited brand
+   survived, and it made the app read as two different products. */
+:root {
+  /* Base — neutral paper ramp */
+  --cth-cream-50:  #FAFAFA;
+  --cth-cream-100: #F4F4F4;
+  --cth-cream-200: #EBEBEB;
+  --cth-cream-300: #DCDCDC;
+  --cth-paper-100: #FFFFFF;   /* cards, inputs, terminals */
+  --cth-paper-200: #F6F6F6;
+
+  /* Ink — neutral gray ramp */
+  --cth-ink-900: #1F1F1F;
+  --cth-ink-700: #4A4A4A;
+  --cth-ink-500: #767676;
+  --cth-ink-300: #B4B4B4;
+  --cth-ink-100: #E4E4E4;
+
+  /* Accents — v0.3.4 recalibration: same hues, professional saturation.
+     The originals (#FFD93D, #FF6B6B, …) were full-saturation arcade tones that
+     read as noise at UI density; these sit in the calmer band that products
+     like Linear/Radix use — recognizable color, no glare. */
+  --cth-coral: #C13B3B;       --cth-coral-light: #F4D6D3;
+  --cth-mint:  #5A9F7A;       --cth-mint-light:  #D0E6D8;
+  --cth-sky:   #4A97A9;       --cth-sky-light:   #CDE3E8;
+  --cth-lemon: #D9A63A;       --cth-lemon-light: #F4E3B9;
+  --cth-lilac: #8F7BCC;       --cth-lilac-light: #DFD8F1;
+  --cth-peach: #D58E63;       --cth-peach-light: #F3D9C8;
+
+  /* Brand lockup (components/BrandLogo.tsx) — RUDY ink / OS red. Dark mode
+     flips RUDY to white (brand, not body text — so not the off-white ink-900)
+     and lifts the red so it reads on the dark ground. */
+  --cth-brand-ink:  #111111;
+  --cth-brand-red:  #B3121B;
+  /* The wordmark's OS plate: deep burgundy on light grounds. */
+  --cth-brand-plate: #7A1820;
+  --cth-brand-tile: #111111;
+  --cth-brand-tile-stroke: transparent;
+  /* body dot grid (global.css) */
+  --cth-grid-dot: rgba(0, 0, 0, 0.07);
+
+  /* Status — same recalibration; hue meanings unchanged */
+  --cth-status-idle:     #8E8E8E;
+  --cth-status-thinking: #4F9FAF;
+  --cth-status-working:  #DCAB3C;
+  --cth-status-waiting:  #6D87D6;
+  --cth-status-blocked:  #D96A62;
+  --cth-status-success:  #5CA97A;
+  --cth-status-ghost:    #D6D6D6;
+  --cth-status-compacting: #8F7CC7; /* #5C — mid-/compact, "boxing up context" */
+  --cth-status-looping:    #D6903F; /* #5C — circuit-breaker armed (runaway) */
+  --cth-status-typing:     #C89838; /* unsent text on the prompt — queue is held */
+
+  /* Spacing */
+  --cth-space-0: 0px;
+  --cth-space-1: 4px;
+  --cth-space-2: 8px;
+  --cth-space-3: 12px;
+  --cth-space-4: 16px;
+  --cth-space-5: 24px;
+  --cth-space-6: 32px;
+  --cth-space-7: 48px;
+  --cth-space-8: 64px;
+
+  /* Type — v0.3.4: Press Start 2P stays as the BRAND face for small caps
+     labels; everything the user actually reads is Inter (UI) and JetBrains
+     Mono (code/terminal). Pixelify/VT323 were the main readability drag. */
+  --cth-font-display: "Press Start 2P", monospace;
+  --cth-font-ui:      "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --cth-font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Type scale — the terminal contract: reading text sits in ONE narrow band
+     (12-13px mono) like the Claude Code UI, pixel display text in another
+     (8-12px). Jumps outside these bands are what made screens read as "some
+     things huge, some flattened", so resist per-screen font sizes. */
+  --cth-text-display-lg: 12px;
+  --cth-text-display-md: 10px;
+  --cth-text-display-sm: 8px;
+  --cth-text-body-lg:    13px;
+  --cth-text-body-md:    12.5px;
+  --cth-text-body-sm:    12px;
+  --cth-text-mono-md:    12.5px;
+  --cth-text-mono-sm:    12px;
+
+  /* Line heights — integer multiples */
+  --cth-lh-display-lg: 18px;
+  --cth-lh-display-md: 16px;
+  --cth-lh-display-sm: 12px;
+  --cth-lh-body-lg:    20px;
+  --cth-lh-body-md:    18px;
+  --cth-lh-body-sm:    17px;
+  --cth-lh-mono:       18px;
+
+  /* Hard drop shadow — no blur, softer than before */
+  --cth-shadow-hard: 3px 3px 0 rgba(0, 0, 0, 0.12);
+
+  /* Panel borders — v0.3.4: single hairlines. The old three-layer package
+     boxed every surface in thick chrome; structure now comes from surface
+     contrast, not outlines. Dialogs keep one slightly stronger line. */
+  --cth-panel-border:          inset 0 0 0 1px var(--cth-ink-300);
+  /* Text that sits ON an accent fill (a selected tab, a filled chip). The
+     accents are LIGHT surfaces in BOTH themes, so this is dark in both — using
+     ink-900 here inverts with the theme and paints near-white on a pale accent,
+     which is the one place the theme switch actively hurts legibility. */
+  --cth-on-accent: #1C1418;
+
+  --cth-panel-border-inset:    inset 0 0 0 1px var(--cth-ink-100);
+  --cth-panel-border-terminal: inset 0 0 0 1px var(--cth-ink-300);
+  --cth-panel-border-dialog:   inset 0 0 0 1px var(--cth-ink-500);
+}
+
+/* ── Dark theme ──────────────────────────────────────────────────────────────
+   One token swap darkens the WHOLE app. Shades of black with a near-white text
+   ramp, tuned for READABILITY first and measured rather than eyeballed. Stamped
+   by design/theme.ts as data-cth-theme on <html>; the terminal palette and
+   per-agent Claude session themes follow the same switch.
+
+   THE BUG THIS FIXES. Text was never the problem — ink-900 measured 11-14:1 and
+   ink-700 8-9.6:1 against every surface. `ink-300` was, at 1.73-2.09:1. That
+   token is not decoration: it is this app's entire structural language, used
+   187 times and 93 of those as `inset 0 0 0 1px` — the border on every button,
+   input, panel, card and chip. Below ~3:1 a 1px line is not perceivable, so in
+   dark mode the edges defining every control simply were not there, and the UI
+   read as flat washes of grey. ink-300 is now 3.12-3.59:1 and ink-100 stays
+   deliberately quieter (1.47-1.69:1) for dividers that should recede.
+
+   NOT BLACK, AND NOT WHITE. A first pass took the ground to #0E0E11 and text to
+   #EDECEA, which measured beautifully and read as harsh: near-black behind
+   near-white is maximum contrast, and maximum contrast is not the same as
+   comfortable. The ground now sits at luminance 0.009-0.020 (visibly lifted off
+   black, still unambiguously a dark theme) and text at 0.71 rather than 0.84 —
+   a warm off-white. Everything still clears its floor with room to spare.
+
+   Every value below is verified against WCAG contrast for the five surfaces it
+   can appear on: body text >= 4.5, structural borders >= 3.0. Accents are held
+   to a narrow luminance band (0.36-0.44) so no single hue fluoresces against
+   the black and colour never becomes the thing carrying the layout. */
+:root[data-cth-theme='dark'] {
+  /* Base surfaces — a graded elevation ramp, darkest where light mode was
+     lightest. Neutral with a whisper of the brand's violet warmth. */
+  --cth-cream-50:  #161616;   /* app ground — terminal gray, deliberately NOT black */
+  --cth-cream-100: #1B1B1B;
+  --cth-cream-200: #232323;
+  --cth-cream-300: #2E2E2E;
+  --cth-paper-100: #121212;   /* cards, inputs, terminals */
+  --cth-paper-200: #1C1C1C;
+
+  /* Ink → off-white text ramp (never #FFF — glare) */
+  --cth-ink-900: #E8E6E3;   /* primary text, the terminal off-white */
+  --cth-ink-700: #B5B2AD;   /* secondary text */
+  --cth-ink-500: #8B8885;   /* tertiary / hints */
+  --cth-ink-300: #55524F;   /* BORDERS */
+  --cth-ink-100: #2A2827;   /* dividers, meant to recede */
+
+  /* Accents — one step lighter/softer than the light set so they read on dark
+     without fluorescing */
+  --cth-coral: #E5565B;       --cth-mint:  #57AB5A;
+  --cth-sky:   #6FA8FF;       --cth-lemon: #C9A227;
+  --cth-lilac: #A18CF5;       --cth-peach: #D68F5F;
+
+  /* Accent "-light" fills double as chip/selection backgrounds — deep muted
+     versions so light text (ink-900) stays readable on top. */
+  --cth-coral-light: #3A1F20;
+  --cth-mint-light:  #1C2E1E;
+  --cth-sky-light:   #1B2A40;
+  --cth-lemon-light: #322B14;
+  --cth-lilac-light: #272040;
+  --cth-peach-light: #33241A;
+
+  /* Brand lockup — RUDY white, OS red (brighter than the light burgundy so
+     it holds up on #1D1D22), tile keeps its ink + a faint edge */
+  --cth-brand-ink:  #FFFFFF;
+  --cth-brand-red:  #E5484D;
+  --cth-brand-plate: #B3121B;
+  --cth-brand-tile: #111111;
+  --cth-brand-tile-stroke: rgba(255, 255, 255, 0.22);
+  --cth-grid-dot: rgba(255, 255, 255, 0.04);
+
+  /* Status — dark-tuned counterparts (same hue language) */
+  --cth-status-idle:     #6E6B68;
+  --cth-status-thinking: #58A6FF;
+  --cth-status-working:  #C9A227;
+  --cth-status-waiting:  #6FA8FF;
+  --cth-status-blocked:  #E5484D;
+  --cth-status-success:  #57AB5A;
+  /* The quietest status, but still a MARK the user must be able to find — at
+     the old #3D3C44 it measured 1.54:1 on the new ground and simply vanished. */
+  --cth-status-ghost:    #56534F;
+  --cth-status-compacting: #A18CF5;
+  --cth-status-looping:    #D68F5F;
+  --cth-status-typing:     #C9A227;
+
+  /* Hard shadow reads as depth, not void */
+  --cth-shadow-hard: 4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* ─── Aurora shell (ui/aurora) ────────────────────────────────────────────
+   The glass command deck around the whole app. Light theme is a pearl
+   aurora on linen; dark theme is the deep space deck. Blob colours are the
+   northern lights, glass is the panel material, gold is Rudy's halo. */
+:root {
+  --aur-bg-a: #F2F2F2;
+  --aur-bg-b: #ECECEC;
+  --aur-blob-1: transparent;
+  --aur-blob-2: transparent;
+  --aur-blob-3: transparent;
+  --aur-glass: rgba(255, 255, 255, 0.72);
+  --aur-glass-strong: rgba(255, 255, 255, 0.88);
+  --aur-glass-brd: rgba(0, 0, 0, 0.13);
+  --aur-glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --aur-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --aur-dim: var(--cth-ink-500);
+  --aur-gold-a: #F7DE86;
+  --aur-gold-b: #D9A93C;
+  --aur-gold-glow: rgba(217, 169, 60, 0.30);
+}
+:root[data-cth-theme='dark'] {
+  --aur-bg-a: #131313;
+  --aur-bg-b: #171717;
+  --aur-blob-1: transparent;
+  --aur-blob-2: transparent;
+  --aur-blob-3: transparent;
+  --aur-glass: #1B1B1B;
+  --aur-glass-strong: #1B1B1B;
+  --aur-glass-brd: #2E2E2E;
+  --aur-glass-shadow: 0 6px 20px rgba(0, 0, 0, 0.30);
+  --aur-glass-inset: inset 0 0 0 0 transparent;
+  --aur-dim: var(--cth-ink-500);
+  --aur-gold-a: #E8C55A;
+  --aur-gold-b: #D9A93C;
+  --aur-gold-glow: rgba(201, 162, 39, 0.25);
+}
+
+/* ─── Rudy HQ (ui/aurora) ────────────────────────────────────────────────
+   The contrast contract. Text went invisible when colours were picked per
+   screen; from here on ink only ever sits on its own ground. Four pairs,
+   both themes, body text above 7:1:
+     ink  / ground   all body text
+     ink2 / glass    secondary text, never below 12px
+     white / accent  buttons, needs-you
+     dark  / gold    send, hire, active states */
+:root {
+  --hq-ink:       #1F1F1F;
+  --hq-ink2:      #5A5A5A;
+  --hq-ink3:      #7A7A7A;
+  --hq-accent:    #B3121B;
+  --hq-ok:        #2E7D4F;
+  --hq-warn:      #B3121B;
+  --hq-on-accent: #FFFFFF;
+  --hq-on-gold:   #2A1D02;
+  --hq-blue:      #2563C9;
+  --hq-scrim:     rgba(0, 0, 0, 0.32);
+  --hq-field:     rgba(255, 255, 255, 0.85);
+  /* Sheet titles and hero lines wear the pixel face: one identity from the
+     wordmark to the smallest label. Sizes are set small where it is used —
+     Press Start 2P above ~14px turns from identity into shouting. */
+  --hq-font-title: "Press Start 2P", monospace;
+}
+:root[data-cth-theme='dark'] {
+  --hq-ink:       #E8E6E3;
+  --hq-ink2:      #A5A29E;
+  --hq-ink3:      #7A7772;
+  --hq-accent:    #E5484D;
+  --hq-ok:        #57AB5A;
+  --hq-warn:      #E5484D;
+  --hq-blue:      #6FA8FF;
+  --hq-on-accent: #FFFFFF;
+  --hq-on-gold:   #2A1D02;
+  --hq-scrim:     rgba(0, 0, 0, 0.55);
+  --hq-field:     #101010;
+}

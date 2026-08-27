@@ -1,0 +1,144 @@
+appId: com.rudydoes.app
+productName: Rudy
+copyright: Copyright © 2026 Alex Nacul
+
+# Where electron-updater looks for new versions (latest*.yml + assets on GitHub
+# releases). The release workflow still uploads assets itself (--publish never);
+# this block only stamps app-update.yml into the packaged app so the updater
+# knows which repo to poll.
+publish:
+  provider: github
+  owner: rudydoes
+  repo: rudy-os
+
+# Notarize + staple after signing, but only when APPLE_* creds are in the env
+# (the hook no-ops otherwise, so contributor builds still work). Root-level hook.
+afterSign: build/notarize.cjs
+
+# Register the rudyos:// URL scheme (shareable-hires deep link) in the
+# packaged app: CFBundleURLTypes on macOS, registry entries via NSIS on Windows.
+protocols:
+  - name: Rudy OS
+    schemes:
+      - rudyos
+
+# electron-vite emits the app into out/; package exactly that plus what the
+# runtime needs. node-pty is native, so keep it out of the asar.
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+  # v0.3.4: shipped so the voice get_app_info tool can read release notes.
+  - CHANGELOG.md
+  - "!**/*.{md,map,ts,tsx}"
+  - "!**/{.eslintrc,.prettierrc,tsconfig*.json,electron.vite.config.*}"
+
+# Ship the standalone Slack reply helper as a plain file under the app's
+# resources dir (process.resourcesPath). It runs under `node`, NOT inside the
+# asar, so the office worker can invoke `node <resources>/rudy-slack-reply.cjs`.
+extraResources:
+  - from: resources/rudy-slack-reply.cjs
+    to: rudy-slack-reply.cjs
+  # Knowledge Graph agent CLI + its pure-JS core. Agents invoke `node
+  # <resources>/kg.cjs` out-of-process; kg-core.cjs ships beside it so the CLI's
+  # `require('./kg-core.cjs')` resolves outside the asar.
+  - from: resources/kg.cjs
+    to: kg.cjs
+  - from: src/main/kg-core.cjs
+    to: kg-core.cjs
+  # Bundled default skills (read-only/no-secret). copyBundledSkills() reads these
+  # from skillsResourceDir() = <process.resourcesPath>/skills in the packaged app
+  # and refreshes each agent's .claude/skills/ per spawn (dev resolves to
+  # repo resources/skills). Directory copy preserves the <id>/SKILL.md tree.
+  - from: resources/skills
+    to: skills
+
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+  # better-sqlite3 is native (bindings/prebuild need the .node on the real FS).
+  - "**/node_modules/better-sqlite3/**"
+
+# Rebuild native deps (node-pty) for the target during packaging.
+npmRebuild: true
+
+# ---- macOS ----
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+  # Declare WHY the app touches the user's folders. macOS shows these strings in
+  # the privacy prompt and, for a signed app, remembers the grant — so the user
+  # is asked ONCE instead of on every agent action.
+  extendInfo:
+    NSDocumentsFolderUsageDescription: "Rudy OS runs your Claude Code agents, which read and write files in the project folders you point them at."
+    NSDesktopFolderUsageDescription: "Rudy OS's agents may work on projects located on your Desktop."
+    NSDownloadsFolderUsageDescription: "Rudy OS's agents may work on projects located in your Downloads."
+    NSRemovableVolumesUsageDescription: "Rudy OS's agents may work on projects located on external volumes."
+    NSNetworkVolumesUsageDescription: "Rudy OS's agents may work on projects located on network volumes."
+    # The microphone is used by two opt-in, off-by-default voice features: Free
+    # Flow dictation (Groq transcription) and Realtime Rudy (live voice chat
+    # with the orchestrator via OpenAI). Mic access only happens while one is on.
+    NSMicrophoneUsageDescription: "Rudy OS uses your microphone only for its opt-in voice features: Free Flow dictation (transcribed by Groq into the message queue) and talking to Rudy in real time (streamed to OpenAI). The mic is off unless you turn one of these on."
+  # Hardened runtime + entitlements so the spawned `claude` agents inherit this
+  # app's TCC responsibility (one grant covers them all) and node-pty can load.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  gatekeeperAssess: false
+  # Disable electron-builder's BUILT-IN notarization. It auto-triggers whenever the
+  # APPLE_* env vars are present and runs inside signApp — a path our afterSign hook's
+  # try/catch can't guard, so a bad-credential failure there hard-fails the whole
+  # release (exactly what bit us). Instead, the root-level `afterSign: build/notarize.cjs`
+  # hook does notarization best-effort: it tries, and on failure ships the signed (un-
+  # notarized) build rather than sinking the cross-platform release. Notarization
+  # resumes automatically once the APPLE_* secrets are valid — no further changes.
+  notarize: false
+  # Signing: TCC binds a remembered grant to a STABLE code signature, so a signed
+  # build is asked for folder access ONCE. The "Developer ID Application" cert is
+  # auto-discovered from the login keychain (CSC_IDENTITY_AUTO_DISCOVERY). If no
+  # cert is found, electron-builder warns and produces an unsigned build, so
+  # contributors without an Apple account can still build.
+  #   To sign: install your "Developer ID Application" cert into the keychain.
+  #   (Override with CSC_LINK=<path-to.p12> + CSC_KEY_PASSWORD for CI.)
+  # Notarization happens in the root-level `afterSign` hook (top of this file).
+  # dmg is what humans download; zip is what Squirrel.Mac (electron-updater)
+  # actually updates from — latest-mac.yml points at it. Both universal.
+  target:
+    - target: dmg
+      arch: [universal]
+    - target: zip
+      arch: [universal]
+  artifactName: Rudy-OS-${version}-mac-${arch}.${ext}
+
+dmg:
+  title: Rudy ${version}
+
+# ---- Windows ----
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Rudy-OS-${version}-win-x64-setup.exe
+  shortcutName: Rudy
+
+portable:
+  artifactName: Rudy-OS-${version}-win-x64-portable.exe
+
+# ---- Linux ----
+linux:
+  category: Development
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: Rudy-OS-${version}-linux-x86_64.AppImage

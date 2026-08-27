@@ -1,0 +1,770 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   RUDY HQ · the one shell (ui/aurora branch)
+
+   One bar. Work on the left, the world on the right, sheets over it all.
+     bar     brand, the eleven modules, the floor pulse, theme, settings
+     desk    Rudy's terminal with Rudy as the composer at its foot
+     world   the office as a live window, then the floor, triaged
+     sheet   every module and every worker console opens here and closes
+             on outside click, Esc, its own button, or a retap in the bar
+
+   Every colour comes from the contrast contract in tokens.css (--hq-*),
+   the glass material from the Aurora tokens (--aur-*). Nothing here is
+   declared for one theme only.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── the room ───────────────────────────────────────────────────────── */
+:root[data-cth-theme='dark'] .aur-blob { display: none; }
+
+.hq-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--aur-bg-a), var(--aur-bg-b));
+  color: var(--hq-ink);
+  isolation: isolate;
+}
+
+/* ── ONE bar ────────────────────────────────────────────────────────── */
+.hq-bar {
+  position: relative;
+  z-index: 20;
+  height: 46px;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 86px;
+  /* Light theme: warm greige chrome, a shade deeper than the paper below so
+     it still reads as the app's frame — pure black on a cream app read as a
+     foreign object. Local token re-aims keep every child legible. */
+  --hq-ink: #26222E;
+  --hq-ink2: #6B6470;
+  --hq-ink3: #9B93A1;
+  --hq-ok: #2F7D39;
+  --hq-warn: #C42B30;
+  --hq-blue: #2B6CD4;
+  --aur-glass: rgba(38, 34, 46, 0.06);
+  --aur-glass-brd: #D8D0C1;
+  --cth-brand-ink: #26222E;
+  --cth-brand-red: #B3121B;
+  --cth-brand-plate: #7A1820;
+  --hq-lights-pad: rgba(38, 34, 46, 0.22);
+  background: #EAE4D8;
+  border-bottom: 1px solid #D8D0C1;
+  user-select: none;
+}
+/* The ground under the macOS traffic lights (light bar only — on dark they
+   carry themselves). A full-height corner fade instead of a floating pill:
+   nothing to vertically align, it just darkens the lights' corner and
+   dissolves rightward. */
+.hq-lights-pad {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 118px;
+  background: linear-gradient(to right, var(--hq-lights-pad, transparent), transparent);
+  pointer-events: none;
+}
+/* Dark theme keeps the near-black band — that one the user signed off on. */
+:root[data-cth-theme='dark'] .hq-bar {
+  --hq-ink: #E8E6E3;
+  --hq-ink2: #A5A29E;
+  --hq-ink3: #7A7772;
+  --hq-ok: #57AB5A;
+  --hq-warn: #E5484D;
+  --hq-blue: #6FA8FF;
+  --aur-glass: rgba(255, 255, 255, 0.06);
+  --aur-glass-brd: #2E2E2E;
+  --cth-brand-ink: #FFFFFF;
+  --cth-brand-red: #E5484D;
+  --cth-brand-plate: #B3121B;
+  --hq-lights-pad: transparent;
+  background: #141414;
+  border-bottom: 1px solid #2E2E2E;
+}
+.hq-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.hq-mods {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+.hq-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--hq-ink2);
+  font-family: var(--cth-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.14s, background 0.14s, border-color 0.14s;
+}
+.hq-mod:hover { color: var(--hq-ink); background: var(--aur-glass); }
+.hq-mod.on {
+  color: var(--hq-ink);
+  border-color: var(--hq-blue);
+  background: color-mix(in srgb, var(--hq-blue) 12%, transparent);
+}
+.hq-mod .hq-mod-ic { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; }
+.hq-mod .hq-mod-ic svg { width: 14px; height: 14px; }
+/* The words are the nav. Icons ride along only when the bar has room for
+   both; a narrow window drops the icons, never the labels, never into a
+   hidden menu. */
+@media (max-width: 1500px) {
+  .hq-mod .hq-mod-ic { display: none; }
+}
+@media (max-width: 1240px) {
+  .hq-mod { padding: 0 7px; font-size: 10px; }
+}
+.hq-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.hq-pulse {
+  font-family: var(--cth-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--hq-ink2);
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.hq-pulse b { font-weight: 600; color: var(--hq-ok); }
+.hq-pulse b.warn { color: var(--hq-warn); }
+.hq-pulse .sep { margin: 0 5px; color: var(--hq-ink3); }
+@media (max-width: 1180px) { .hq-pulse { display: none; } }
+.hq-iconbtn {
+  width: 28px; height: 28px;
+  border-radius: 3px;
+  border: 1px solid var(--aur-glass-brd);
+  background: transparent;
+  color: var(--hq-ink2);
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: color 0.14s, background 0.14s, border-color 0.14s;
+}
+.hq-iconbtn:hover { color: var(--hq-ink); background: var(--aur-glass); }
+.hq-iconbtn.on { color: var(--hq-blue); border-color: var(--hq-blue); background: color-mix(in srgb, var(--hq-blue) 12%, transparent); }
+
+/* ── the body: work left, world right ───────────────────────────────── */
+.hq-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 316px;
+  gap: 14px;
+  padding: 14px;
+}
+.hq-main  { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.hq-world { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+
+/* ── the desk: Rudy's terminal, Rudy as the composer ────────────────── */
+.hq-desk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.hq-desk-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px 10px 14px;
+  border-bottom: 1px solid var(--aur-glass-brd);
+  flex-shrink: 0;
+}
+.hq-desk-title {
+  font-family: var(--cth-font-display);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--hq-ink);
+  line-height: 14px;
+  white-space: nowrap;
+}
+.hq-desk-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  min-width: 0;
+  font-family: var(--cth-font-ui);
+  font-size: 12px;
+  color: var(--hq-ink2);
+}
+.hq-desk-sub span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hq-desk-tools { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.hq-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 3px;
+  border: 1px solid var(--aur-glass-brd);
+  background: transparent;
+  color: var(--hq-ink2);
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s, background 0.14s, border-color 0.14s;
+}
+.hq-pill:hover { color: var(--hq-ink); background: var(--aur-glass); }
+/* State pills are FILLED, not tinted outlines — on/off must read from across
+   the room, same rule as the settings switches. */
+.hq-pill.live { border-color: var(--hq-ok); background: var(--hq-ok); color: #FFFFFF; }
+.hq-pill.live:hover { background: var(--hq-ok); color: #FFFFFF; filter: brightness(1.1); }
+.hq-pill.held { border-color: var(--hq-warn); background: var(--hq-warn); color: #FFFFFF; }
+.hq-pill.held:hover { background: var(--hq-warn); color: #FFFFFF; filter: brightness(1.1); }
+.hq-pill svg { width: 12px; height: 12px; }
+
+/* ── the modules, as squares right above the terminal ───────────────── */
+.hq-sq-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--aur-glass-brd);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.hq-sq-row::-webkit-scrollbar { height: 0; display: none; }
+.hq-sq {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 64px;
+  height: 46px;
+  padding: 0 7px;
+  border: 1px solid var(--aur-glass-brd);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--hq-ink2);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  position: relative;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.hq-sq svg { width: 14px; height: 14px; }
+.hq-sq:hover { color: var(--hq-ink); border-color: var(--hq-ink3); }
+.hq-sq.on {
+  color: var(--hq-blue);
+  border-color: var(--hq-blue);
+  background: color-mix(in srgb, var(--hq-blue) 9%, transparent);
+}
+.hq-sq.alert { color: var(--hq-warn); border-color: var(--hq-warn); }
+.hq-sq.dim { opacity: 0.55; }
+.hq-sq .hq-sq-n {
+  position: absolute;
+  top: -6px; right: -5px;
+  background: var(--hq-warn);
+  color: var(--hq-on-accent);
+  font-family: var(--cth-font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  border-radius: 2px;
+  min-width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+}
+.hq-sq.newsess { border-style: dashed; }
+.hq-sq.newsess:hover { color: var(--hq-ok); border-color: var(--hq-ok); }
+
+/* The Command Center panel sheds its frame and sits IN the glass. The
+   panel paints its fill and border inline, so the two overrides below have
+   to outrank inline styles on purpose. */
+.hq-desk-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.hq-desk-body > div { background: transparent !important; box-shadow: none !important; }
+
+/* The queue composer is Rudy's composer here: his face at the left, the
+   field as a glass pill, send in gold. */
+.hq-desk .mqc {
+  background: transparent !important;
+  border-top: 1px solid var(--aur-glass-brd) !important;
+  padding: 10px 14px 12px !important;
+}
+.hq-desk .mqc .cth-input {
+  border-radius: 4px;
+  background: var(--hq-field) !important;
+  box-shadow: inset 0 0 0 1px var(--aur-glass-brd) !important;
+  color: var(--hq-ink) !important;
+}
+.hq-desk .mqc .cth-input:focus,
+.hq-desk .mqc .cth-input:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--hq-blue) !important;
+}
+.hq-desk .mqc .cth-input::placeholder { color: var(--hq-ink3); }
+
+/* The queue, folded away: you talk to Rudy in the terminal itself. This
+   strip only says the queue exists; it opens on click and whenever
+   something is actually held. */
+.mqc-collapsed {
+  flex-shrink: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-top: 1px solid var(--aur-glass-brd);
+  background: transparent;
+  padding: 7px 14px;
+  text-align: left;
+  color: var(--hq-ink3);
+  cursor: pointer;
+}
+.mqc-collapsed:hover .mqc-c-t { color: var(--hq-ink2); }
+.mqc-collapsed:hover .mqc-c-k { color: var(--hq-ink2); border-color: var(--hq-ink3); }
+.mqc-c-k {
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hq-ink3);
+  border: 1px solid var(--aur-glass-brd);
+  border-radius: 2px;
+  padding: 4px 7px;
+  flex-shrink: 0;
+}
+.mqc-c-t {
+  font-family: var(--cth-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--hq-ink3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.mqc-hide {
+  border: 0; background: transparent; padding: 0;
+  font-family: var(--cth-font-mono); font-size: 10px;
+  color: var(--hq-ink3); cursor: pointer; text-decoration: underline;
+}
+.mqc-hide:hover { color: var(--hq-ink); }
+
+/* Rudy's face: a small gold ring. */
+.hq-face {
+  position: relative;
+  /* The caramel tile, same treatment as the app icon: cream ground, rounded
+     square. The gold-circle version read as "Rudy in a yellow ball". */
+  border-radius: 27%;
+  flex-shrink: 0;
+  background: #F2ECE4;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(20, 16, 26, 0.35);
+}
+/* Sit the bust a touch lower in the gold circle: centered maths says it fits,
+   but the circle's top arc still grazed the hair swoop. */
+.hq-face canvas { transform: translateY(2px); }
+.hq-face-ring {
+  position: relative;
+  border-radius: 27%;
+  flex-shrink: 0;
+}
+.hq-face-ring::after {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: 30%;
+  border: 1.5px solid var(--aur-glass-brd);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.hq-face-ring.hot::after { border-color: var(--hq-warn); }
+
+/* Empty and waking states of the desk. */
+.hq-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+.hq-empty-k {
+  font-family: var(--cth-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--hq-ink3);
+}
+.hq-empty-t {
+  font-family: var(--hq-font-title);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--hq-ink);
+  text-wrap: balance;
+}
+.hq-empty-p {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--cth-font-ui);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--hq-ink2);
+}
+
+/* ── the world column: the office as a window ───────────────────────── */
+.hq-office {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.hq-office:not(.grown) { cursor: pointer; }
+.hq-office:not(.grown):hover { transform: translateY(-2px); }
+.hq-office-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--aur-glass-brd);
+  flex-shrink: 0;
+}
+.hq-office-head h5 {
+  margin: 0;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hq-ink2);
+}
+.hq-office-head .grow {
+  font-size: 12px;
+  color: var(--hq-ink3);
+  background: none; border: 0; padding: 0; cursor: pointer;
+  line-height: 1;
+}
+.hq-office-head .live {
+  margin-left: auto;
+  font-family: var(--cth-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--hq-ok);
+  font-weight: 700;
+}
+.hq-office-head .live::before { content: '●'; margin-right: 5px; animation: hq-blink 2.2s infinite; }
+@keyframes hq-blink { 0%, 70% { opacity: 1; } 85% { opacity: 0.25; } }
+.hq-office-head .x {
+  width: 26px; height: 26px;
+  border-radius: 3px;
+  border: 1px solid var(--aur-glass-brd);
+  background: transparent;
+  color: var(--hq-ink2);
+  display: grid; place-items: center;
+  cursor: pointer;
+  font-size: 12px;
+}
+.hq-office-head .x:hover { color: var(--hq-warn); border-color: var(--hq-warn); }
+.hq-office-body {
+  position: relative;
+  height: 188px;
+  overflow: hidden;
+  border-radius: 0 0 7px 7px;
+  /* The canvas is transparent now — the card supplies the ground, so the
+     letterboxing around the map is paper, not black. */
+  background: var(--cth-cream-100, #F5EFE2);
+}
+/* The floor canvas paints its own hairline frame; inside the glass it is one
+   line too many. */
+.hq-office-body > div:first-child { box-shadow: none !important; }
+.hq-office-cover {
+  position: absolute; inset: 0;
+  cursor: pointer;
+}
+/* Grown: the same card, now a tall sheet docked at the RIGHT — the office as
+   a big co-working presence beside your work, not a floating modal. The map
+   letterboxes on paper (the canvas is transparent) and the camera keeps it
+   crisp: ≥0.9 fit rounds to 1:1, smaller snaps to clean halvings. */
+.hq-office.grown {
+  position: absolute;
+  z-index: 32;
+  top: 14px; right: 14px; bottom: 14px;
+  width: min(calc(100% - 228px), max(62%, 760px));
+  cursor: default;
+  animation: hq-fade 0.18s ease-out;
+}
+.hq-office.grown .hq-office-body { flex: 1; height: auto; }
+.hq-office-ghost { height: 227px; flex-shrink: 0; }
+
+/* ── the floor, triaged ─────────────────────────────────────────────── */
+.hq-floor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.hq-floor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  flex-shrink: 0;
+}
+.hq-floor-head h5 {
+  margin: 0;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hq-ink2);
+}
+.hq-hire {
+  margin-left: auto;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 3px;
+  border: none;
+  /* Rudy's gold, matching the ring around his face — hiring is HIS moment,
+     and the red version fought the HELD/alert reds for attention. */
+  background: var(--cth-lemon, #F4D35E);
+  color: #1A1A1A;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.14s, filter 0.14s;
+}
+.hq-hire:hover { transform: translateY(-1px); filter: brightness(1.12); }
+.hq-floor-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-width: thin;
+}
+.fl-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 4px;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hq-ink3);
+}
+.fl-h .n { margin-left: auto; }
+.fl-h.hot { color: var(--hq-warn); }
+.fl-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s;
+}
+.fl-card:hover { background: var(--aur-glass); border-color: var(--aur-glass-brd); }
+.fl-card.sel { border-color: var(--hq-blue); background: color-mix(in srgb, var(--hq-blue) 10%, transparent); }
+.fl-card.needy .fl-face { box-shadow: 0 0 0 1.5px var(--hq-warn); }
+.fl-face {
+  width: 30px; height: 30px;
+  /* Every hire wears the caramel tile, the exact same treatment as Rudy at
+     the desk and the app icon — no per-agent tinted backgrounds. */
+  border-radius: 27%;
+  background: #F2ECE4;
+  overflow: hidden;
+  /* Top-aligned: the sprite (32px at this scale) overflows a 30px box, and
+     bottom-aligning cut the HEAD. Pin the head, let the feet take the crop. */
+  display: flex; align-items: flex-start; justify-content: center;
+  flex-shrink: 0;
+}
+.fl-main { flex: 1; min-width: 0; }
+.fl-name {
+  display: block;
+  font-family: var(--cth-font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--hq-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fl-sub {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--cth-font-ui);
+  font-size: 10.5px;
+  color: var(--hq-ink3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fl-sub b { font-weight: 600; color: var(--hq-ink2); }
+.fl-load {
+  width: 34px; height: 4px;
+  border-radius: 1px;
+  background: var(--aur-glass-brd);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.fl-load i { display: block; height: 100%; border-radius: 1px; background: var(--hq-ok); }
+.fl-load.high i { background: var(--aur-gold-b); }
+.fl-act {
+  flex-shrink: 0;
+  font-family: var(--cth-font-ui);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hq-warn);
+  border: 1px solid var(--hq-warn);
+  border-radius: 3px;
+  padding: 4px 7px;
+}
+.fl-card:hover .fl-act { background: var(--hq-warn); color: var(--hq-on-accent); }
+.hq-floor-empty {
+  padding: 22px 12px;
+  text-align: center;
+  font-family: var(--cth-font-ui);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--hq-ink3);
+}
+
+/* ── sheets ─────────────────────────────────────────────────────────── */
+.hq-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--hq-scrim);
+  animation: hq-fade 0.2s ease-out;
+}
+.hq-sheet {
+  position: absolute;
+  z-index: 31;
+  top: 14px; right: 14px; bottom: 14px;
+  width: min(calc(100% - 228px), max(62%, 760px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: hq-slide 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes hq-slide { from { transform: translateX(calc(100% + 28px)); } to { transform: none; } }
+@keyframes hq-fade  { from { opacity: 0; } to { opacity: 1; } }
+.hq-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px 10px 16px;
+  border-bottom: 1px solid var(--aur-glass-brd);
+  flex-shrink: 0;
+}
+.hq-sheet-head h3 {
+  margin: 0;
+  font-family: var(--hq-font-title);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  color: var(--hq-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hq-sheet-head .esc {
+  margin-left: auto;
+  font-family: var(--cth-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--hq-ink3);
+  white-space: nowrap;
+  font-weight: 700;
+}
+.hq-sheet-head .x {
+  width: 26px; height: 26px;
+  border-radius: 3px;
+  border: 1px solid var(--aur-glass-brd);
+  background: transparent;
+  color: var(--hq-ink2);
+  display: grid; place-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.hq-sheet-head .x:hover { color: var(--hq-warn); border-color: var(--hq-warn); }
+.hq-sheet-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Module bodies and worker consoles keep their pixel interiors; only the
+   outer frame goes, so they sit in the glass instead of on top of it. */
+.hq-sheet-body > div { min-height: 0; }
+.hq-sheet-body > .hq-sheet-worker > div { background: transparent !important; box-shadow: none !important; }
+.hq-sheet-worker { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.hq-sheet-module { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.hq-hint {
+  position: absolute;
+  left: 92px; bottom: 34px;
+  z-index: 33;
+  font-family: var(--cth-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: #FFFFFF;
+  background: rgba(12, 10, 16, 0.78);
+  padding: 7px 14px;
+  border-radius: 3px;
+  pointer-events: none;
+  animation: hq-fade 0.4s ease-out;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hq-face-ring::after, .hq-office-head .live::before { animation: none; }
+  .hq-sheet, .hq-scrim, .hq-office.grown, .hq-hint { animation: none; }
+}

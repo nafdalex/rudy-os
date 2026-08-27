@@ -118,12 +118,6 @@
   .step p b { color: var(--text); }
   @media (max-width: 760px) { .step { grid-template-columns: 1fr; } .step:nth-child(even) img { order: 0; } }
 
-  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
-  @media (max-width: 760px) { .gallery { grid-template-columns: 1fr; } }
-  .gallery figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .gallery img { width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; object-position: left top; border-bottom: 1px solid var(--line); background: #EFEAE0; }
-  .gallery figcaption { font-size: 12px; color: var(--text-dim); padding: 11px 14px 13px; }
-  .gallery figcaption b { color: var(--text); }
   .kit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
   @media (max-width: 760px) { .kit { grid-template-columns: 1fr; } }
   .k { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
@@ -254,17 +248,6 @@
   </div>
 </section>
 
-<section class="wrap rv" id="see">
-  <div class="eyebrow">full visibility</div>
-  <h2>YOU SEE EVERYTHING</h2>
-  <p class="sect-sub">No black box. Every card, every message, every desk is on your screen while it happens.</p>
-  <div class="gallery">
-    <figure><img src="/media/img/see-board.png?v=1" alt="The shared task board in Rudy OS" loading="lazy"><figcaption><b>The board.</b> Todo, doing, blocked, done, and every card keeps its result.</figcaption></figure>
-    <figure><img src="/media/img/see-graph.png?v=1" alt="The message graph in Rudy OS" loading="lazy"><figcaption><b>The graph.</b> Who talks to whom, request by request, live.</figcaption></figure>
-    <figure><img src="/media/img/see-office.png?v=1" alt="The pixel office floor in Rudy OS" loading="lazy"><figcaption><b>The office.</b> Every agent at a desk, on the clock, in real time.</figcaption></figure>
-  </div>
-</section>
-
 <section class="wrap rv" id="engines">
   <div class="eyebrow">the engine wall</div>
   <h2>BRING THE AGENTS YOU ALREADY PAY FOR</h2>
@@ -331,7 +314,6 @@
     </div>
     <div class="fcol"><h4>Product</h4>
       <a href="#how">How it works</a>
-      <a href="#see">Full visibility</a>
       <a href="#engines">Engines</a>
       <a href="#faq">FAQ</a>
       <a href="https://github.com/nafdalex/rudy-os/releases/latest">Download</a>

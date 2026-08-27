@@ -1,0 +1,8 @@
+# Rudy OS
+
+> Free, open source multi-agent app for macOS. It wraps the CLI coding agents you already pay for (Claude Code, Codex, Gemini CLI and more) and runs them as one coordinated team with memory, mail and a boss who routes the work. Local first, nothing metered, MIT licensed.
+
+- [Website](https://rudydoes.com/)
+- [Source code](https://github.com/nafdalex/rudy-os)
+- [Download for macOS](https://github.com/nafdalex/rudy-os/releases/latest)
+- Contact: alex@rudydoes.com

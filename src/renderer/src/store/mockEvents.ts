@@ -20,34 +20,34 @@ interface ToolSample {
 
 const TOOL_SAMPLES: ToolSample[] = [
   {
-    tool: 'Read', what: 'reading SPEC.md',
-    lines: ['\x1b[36m● Read\x1b[0m SPEC.md', '   read 412 lines.'],
-    thought: "Pulling up the spec so I can confirm the state machine before touching the implementation."
+    tool: 'Read', what: 'reading the checkout spec',
+    lines: ['\x1b[36m● Read\x1b[0m docs/checkout-spec.md', '   read 412 lines.'],
+    thought: "Pulling up the checkout spec so I can confirm the flow before touching the implementation."
   },
   {
-    tool: 'Edit', what: 'editing PixelPanel.tsx',
-    lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/PixelPanel.tsx', '   +14 / -3'],
-    thought: "Tightening up the panel border math, the inner stroke was a pixel off in inset mode."
+    tool: 'Edit', what: 'editing checkout.tsx',
+    lines: ['\x1b[36m● Edit\x1b[0m src/storefront/checkout.tsx', '   +14 / -3'],
+    thought: "Tightening the address step, the error state was one field off after the redesign."
   },
   {
     tool: 'Bash', what: 'running tests',
-    lines: ['\x1b[36m● Bash\x1b[0m npm test', '   ✓ 24 passed'],
-    thought: "Running the renderer suite to make sure nothing regressed before I move on."
+    lines: ['\x1b[36m● Bash\x1b[0m npm test', '   ✓ 84 passed'],
+    thought: "Running the payments suite to make sure nothing regressed before I move on."
   },
   {
     tool: 'WebFetch', what: 'fetching docs',
-    lines: ['\x1b[36m● WebFetch\x1b[0m https://docs.example.com/hooks', '   ok 200 (1.2kb)'],
-    thought: "Grabbing the hooks doc to double-check the PreToolUse payload shape, my memory of the field names is hazy."
+    lines: ['\x1b[36m● WebFetch\x1b[0m https://status.cdn.example.com', '   ok 200 (1.2kb)'],
+    thought: "Checking the cdn status page, image loads looked slow on the last deploy."
   },
   {
-    tool: 'Glob', what: 'searching for skill files',
-    lines: ['\x1b[36m● Glob\x1b[0m **/*.skill.md', '   23 matches'],
-    thought: "Enumerating all the skill files so I can walk each one and look for stale script paths."
+    tool: 'Glob', what: 'searching the order flows',
+    lines: ['\x1b[36m● Glob\x1b[0m src/orders/**/*.ts', '   23 matches'],
+    thought: "Walking the order flow files to find every place that touches the totals math."
   },
   {
     tool: 'TodoWrite', what: 'updating the todo board',
     lines: ['\x1b[36m● TodoWrite\x1b[0m 4 items'],
-    thought: "Splitting the remaining work into four discrete tasks so I can track them as I go."
+    thought: "Splitting the release checklist into four discrete tasks so I can track them as I go."
   }
 ];
 

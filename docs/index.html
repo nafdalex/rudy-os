@@ -3,48 +3,370 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rudy OS</title>
-<meta name="description" content="Rudy OS is a free, open source agent office. It wraps the CLI coding agent you already use and runs a whole office of agents on your own machine.">
+<title>Rudy OS · An office of AI agents on your Mac</title>
+<meta name="description" content="Free, open source multi-agent app for macOS. Runs Claude Code, Codex, Gemini CLI and more as one coordinated team with memory, mail and a boss who routes the work. Local first, nothing metered.">
+<link rel="canonical" href="https://rudydoes.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Rudy OS · An office of AI agents on your Mac">
+<meta property="og:description" content="Free, open source multi-agent app for macOS. Runs the CLI coding agents you already pay for as one coordinated team. Local first, nothing metered.">
+<meta property="og:url" content="https://rudydoes.com/">
+<meta property="og:image" content="https://rudydoes.com/media/video/poster.png?v=5">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Rudy OS · An office of AI agents on your Mac">
+<meta name="twitter:description" content="Free, open source multi-agent app for macOS. Runs the CLI coding agents you already pay for as one coordinated team.">
+<meta name="twitter:image" content="https://rudydoes.com/media/video/poster.png?v=5">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Rudy OS","operatingSystem":"macOS","applicationCategory":"DeveloperApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Alex Nacul","url":"https://github.com/nafdalex"},"url":"https://rudydoes.com/","downloadUrl":"https://github.com/nafdalex/rudy-os/releases/latest","license":"https://github.com/nafdalex/rudy-os/blob/main/LICENSE","description":"Free, open source multi-agent app for macOS. Runs the CLI coding agents you already pay for as one coordinated team with memory, mail and a boss who routes the work.","screenshot":"https://rudydoes.com/media/video/poster.png?v=5"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoObject","name":"Rudy OS product tour","description":"A one minute walkthrough of Rudy OS: hiring an agent, handing Rudy a job, the team working, and Rudy hiring an agent himself.","thumbnailUrl":"https://rudydoes.com/media/video/poster.png?v=5","contentUrl":"https://rudydoes.com/media/video/tour.mp4?v=5","uploadDate":"2026-08-27"}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does my code or data leave my machine?", "acceptedAnswer": {"@type": "Answer", "text": "No. Agents run as processes on your Mac, in your folders, with your keys. There is no server and no account. The only network traffic is what your agents themselves do, plus a read-only check for updates."}}, {"@type": "Question", "name": "Will this eat my Claude subscription limits?", "acceptedAnswer": {"@type": "Answer", "text": "It runs on the plans you already have, so yes, working agents use them, exactly as if you ran the CLI yourself. You decide how much: per-agent token caps, a floor-wide budget, and a pause button for the whole office. Nothing is marked up and nothing is metered by us."}}, {"@type": "Question", "name": "Can agents step on each other's work?", "acceptedAnswer": {"@type": "Answer", "text": "Each hire can get its own git branch in an isolated worktree, so two agents never type over each other. Rudy integrates the branches and runs the final check before anything merges."}}, {"@type": "Question", "name": "What stops an agent from going rogue?", "acceptedAnswer": {"@type": "Answer", "text": "A circuit breaker watches every agent and steps in when one loops or overspends: steer first, then constrain, then stop. Destructive moves can be gated behind your click, and spend caps are hard limits, not suggestions."}}, {"@type": "Question", "name": "Do I have to babysit it?", "acceptedAnswer": {"@type": "Answer", "text": "No. Anything that truly needs you lands on the NEEDS YOU board as a question, and a desktop toast tells you who finished what. Everything else keeps moving while the app sits in the background."}}, {"@type": "Question", "name": "How is this different from five terminal tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Tabs do not talk to each other. Here every agent has memory that survives the session, a mailbox for handoffs, a shared task board, and a boss who routes work and escalates only what matters. It is coordination, not just multiplexing."}}, {"@type": "Question", "name": "What do I need installed?", "acceptedAnswer": {"@type": "Answer", "text": "A Mac and at least one CLI coding agent you already use, for example Claude Code. Rudy OS finds it and runs it. More engines can be added anytime in settings."}}, {"@type": "Question", "name": "Is it Mac only?", "acceptedAnswer": {"@type": "Answer", "text": "Today, yes: one universal build for Apple Silicon and Intel. Windows and Linux builds are planned, and the build configs already sit in the repo."}}, {"@type": "Question", "name": "Is it really free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Free and open source under MIT, not a trial and not a tier. You already pay for the agents; the office costs nothing."}}]}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --ink: #121110; --panel: #1C1A18; --panel-2: #242220; --line: #35322E;
+    --text: #F2ECE4; --text-dim: #B8B2A6; --text-faint: #837E75;
+    --red: #E5484D; --red-fill: #B3121B; --red-fill-hover: #CF1622;
+    --caramel: #F2ECE4; --caramel-ink: #26222E;
+    --gold: #E8B93C; --mint: #7FBD8A;
+    --chrome: #1C1A18; --shadow: rgba(0,0,0,0.45);
+    --dot: rgba(163,163,163,0.55);
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --px: "Press Start 2P", monospace;
+  }
+  [data-theme="light"] {
+    --ink: #EAE4D8; --panel: #F4F0E8; --panel-2: #EDE8DE; --line: #D8D1C2;
+    --text: #26222E; --text-dim: #5C5750; --text-faint: #8A8478;
+    --red: #B3121B;
+    --chrome: #E2DCCF; --shadow: rgba(38,34,46,0.18);
+    --dot: rgba(163,163,163,0.8);
+  }
   * { box-sizing: border-box; margin: 0; }
-  body {
-    background: #141414; color: #F2ECE4;
-    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    padding: 32px 20px;
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.5px);
+    background-size: 16px 16px; opacity: 0.45; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--ink); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.7; transition: background 0.25s, color 0.25s; }
+  a { color: var(--red); text-decoration: none; }
+  img, video { max-width: 100%; display: block; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px; }
+
+  nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--ink) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .nav-in { display: flex; align-items: center; gap: 22px; height: 58px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { width: 26px; height: 26px; border-radius: 6px; image-rendering: pixelated; }
+  .wmark { height: 15px; width: auto; color: var(--text); display: block; }
+  .wmark.small { height: 12px; }
+  .wm { font-family: var(--px); font-size: 11px; color: var(--text); }
+  .wm b { color: var(--red); font-weight: 400; }
+  .nav-links { display: flex; gap: 18px; margin-left: auto; align-items: center; }
+  .nav-links a.nl { color: var(--text-dim); font-size: 12px; }
+  .nav-links a.nl:hover { color: var(--text); }
+  .gh { display: inline-flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; border: 1px solid var(--line); border-radius: 3px; padding: 5px 10px; }
+  .gh:hover { color: var(--text); border-color: var(--text-faint); }
+  .gh svg { width: 14px; height: 14px; fill: currentColor; }
+  .toggle { background: none; border: 1px solid var(--line); border-radius: 3px; color: var(--text-dim); width: 30px; height: 30px; cursor: pointer; font-size: 13px; line-height: 1; }
+  .toggle:hover { color: var(--text); }
+  .btn { display: inline-block; background: var(--red-fill); color: #fff; font-family: var(--mono); font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 3px; border: none; cursor: pointer; }
+  .btn:hover { background: var(--red-fill-hover); }
+  .btn.big { padding: 13px 26px; font-size: 14px; }
+
+  /* dot pattern behind the hero, masked to a soft circle, tokens swap per theme */
+  .hero-band { position: relative; }
+  .hero-band::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.5px);
+    background-size: 16px 16px;
+    mask-image: radial-gradient(520px circle at 50% 38%, #000, transparent);
+    -webkit-mask-image: radial-gradient(520px circle at 50% 38%, #000, transparent);
   }
-  main { text-align: center; max-width: 560px; }
-  .logo { width: 88px; height: 88px; display: block; margin: 0 auto 28px; image-rendering: pixelated; }
-  h1 { font-family: "Press Start 2P", monospace; font-size: 26px; letter-spacing: 2px; margin-bottom: 22px; color: #FFFFFF; }
-  h1 .os { color: #B3121B; }
-  p.tag { font-size: 14px; line-height: 1.7; color: #B8B2A6; margin-bottom: 34px; }
-  .soon {
-    display: inline-block; font-family: "Press Start 2P", monospace; font-size: 12px;
-    color: #F2ECE4; border: 2px solid #B3121B; border-radius: 3px;
-    padding: 13px 24px; letter-spacing: 3px;
-    animation: pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
-  @media (prefers-reduced-motion: reduce) { .soon { animation: none; } }
-  footer { margin-top: 54px; font-size: 12px; color: #6E6A61; }
-  footer a { color: #B8B2A6; text-decoration: none; border-bottom: 1px solid #3A3833; }
-  footer a:hover { color: #FFFFFF; }
+  .hero-band > * { position: relative; z-index: 1; }
+  .hero { text-align: center; padding: 64px 0 0; }
+  .hero-face { width: 72px; height: 72px; border-radius: 17px; image-rendering: pixelated; margin: 0 auto 20px; box-shadow: 0 10px 30px var(--shadow); }
+  .kick { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; color: var(--red); text-transform: uppercase; margin-bottom: 22px; }
+  h1 { font-family: var(--px); font-size: clamp(17px, 3.4vw, 27px); line-height: 1.85; color: var(--text); font-weight: 400; text-wrap: balance; }
+  h1 .os { color: var(--red); }
+  .hero > p { color: var(--text-dim); max-width: 60ch; margin: 22px auto 30px; font-size: 14px; }
+  .under { margin-top: 16px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+
+  .vid { margin: 44px auto 0; max-width: 940px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px var(--shadow); background: #141414; }
+  .vid video { width: 100%; }
+  .vidnote { margin-top: 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+
+  section { padding: 96px 0 0; }
+  section.wrap { padding: 96px 22px 0; text-align: center; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; color: var(--red); text-transform: uppercase; margin-bottom: 12px; }
+  h2 { font-family: var(--px); font-size: clamp(13px, 2vw, 17px); line-height: 1.9; font-weight: 400; color: var(--text); text-wrap: balance; }
+  .sect-sub { color: var(--text-dim); max-width: 58ch; margin: 14px auto 0; }
+
+  /* the hire story: big focused shots, text beside, sides alternate */
+  .steps { display: flex; flex-direction: column; gap: 56px; margin: 48px auto 0; max-width: 900px; text-align: left; }
+  .step { display: grid; grid-template-columns: 7fr 5fr; gap: 40px; align-items: center; }
+  .step:nth-child(even) { grid-template-columns: 5fr 7fr; }
+  .step:nth-child(even) img { order: 2; }
+  .step img { width: 100%; height: auto; aspect-ratio: 13 / 10; object-fit: cover; object-position: center top; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 18px 44px var(--shadow); background: #EFEAE0; }
+  .step .n { font-family: var(--px); font-size: 10px; color: var(--red); }
+  .step h3 { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 10px 0 8px; }
+  .step p { color: var(--text-dim); font-size: 13.5px; }
+  .step p b { color: var(--text); }
+  @media (max-width: 760px) { .step { grid-template-columns: 1fr; } .step:nth-child(even) img { order: 0; } }
+
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
+  @media (max-width: 760px) { .gallery { grid-template-columns: 1fr; } }
+  .gallery figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .gallery img { width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; object-position: left top; border-bottom: 1px solid var(--line); background: #EFEAE0; }
+  .gallery figcaption { font-size: 12px; color: var(--text-dim); padding: 11px 14px 13px; }
+  .gallery figcaption b { color: var(--text); }
+  .kit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
+  @media (max-width: 760px) { .kit { grid-template-columns: 1fr; } }
+  .k { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+  .k .ic { font-size: 16px; }
+  .k h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 10px 0 6px; }
+  .k p { color: var(--text-dim); font-size: 12.5px; }
+
+  .engines { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 30px; text-align: left; }
+  @media (max-width: 760px) { .engines { grid-template-columns: repeat(2, 1fr); } }
+  .engine { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; color: var(--text-dim); font-size: 12.5px; font-weight: 500; transition: color 0.15s, border-color 0.15s, transform 0.15s; }
+  .engine svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; flex-shrink: 0; }
+  .engine:hover { color: var(--text); border-color: var(--text-faint); transform: translateY(-2px); }
+  .money { margin: 18px auto 0; max-width: 60ch; color: var(--text-dim); font-size: 13px; }
+  .money b { color: var(--text); }
+
+  .trust { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 32px; text-align: left; }
+  @media (max-width: 760px) { .trust { grid-template-columns: 1fr; } }
+  .tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+  .tcard h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .tcard p { color: var(--text-dim); font-size: 12.5px; }
+  .tcard .gh { margin-top: 14px; }
+  .freeline { margin: 22px auto 0; max-width: 640px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 20px; font-size: 13.5px; color: var(--text); }
+
+  .faq { max-width: 700px; margin: 28px auto 0; text-align: left; }
+  details { border-bottom: 1px dashed var(--line); padding: 4px 0; }
+  summary { cursor: pointer; padding: 12px 0; font-size: 13.5px; font-weight: 700; color: var(--text); list-style: none; display: flex; justify-content: space-between; gap: 14px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--red); font-weight: 700; }
+  details[open] summary::after { content: "−"; }
+  details p { color: var(--text-dim); font-size: 13px; padding: 0 0 14px; max-width: 64ch; }
+
+  .lights { margin-top: 96px; background: var(--caramel); color: var(--caramel-ink); text-align: center; padding: 72px 22px 66px; border-top: 1px solid var(--line); }
+  .lights img { width: 72px; height: 72px; border-radius: 17px; image-rendering: pixelated; margin: 0 auto; }
+  .lights h2 { color: var(--caramel-ink); margin-top: 22px; }
+  .lights p { color: #5C5750; margin: 14px auto 26px; max-width: 50ch; font-size: 13.5px; }
+  .lights .under { color: #8A8478; }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 44px; }
+  .foot2 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; padding-top: 14px; text-align: left; }
+  @media (max-width: 720px) { .foot2 { grid-template-columns: 1fr; gap: 26px; } }
+  .fbrand p { color: var(--text-dim); font-size: 12.5px; margin-top: 14px; max-width: 34ch; }
+  .fcol h4 { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 12px; }
+  .fcol a { display: block; color: var(--text-dim); font-size: 12.5px; padding: 3px 0; }
+  .fcol a:hover { color: var(--text); }
+  .foot-base { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); text-align: center; }
+
+  .rv { opacity: 0; transition: opacity 0.6s ease; }
+  .rv.in { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transition: none; } }
+  @media (max-width: 640px) { .nav-links a.nl { display: none; } }
 </style>
 </head>
 <body>
-<main>
-  <img class="logo" src="/logo.png?v=2" alt="Rudy OS" width="88" height="88">
-  <h1>RUDY <span class="os">OS</span></h1>
-  <p class="tag">A free, open source agent office for your own machine.</p>
-  <div class="soon">COMING SOON</div>
-  <footer>
-    <a href="https://github.com/nafdalex/rudy-os">GitHub</a> &nbsp;·&nbsp; <a href="mailto:alex@rudydoes.com">alex@rudydoes.com</a>
-  </footer>
-</main>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="/">
+      <img src="/logo.png?v=2" alt="Rudy">
+      <svg class="wmark" viewBox="0 -12.0 544.0 128.0" role="img" aria-label="Rudy OS" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="360.0" y="-12.0" width="184.0" height="128.0" fill="var(--red-fill)"/><rect x="0" y="0" width="64" height="8" fill="currentColor"/><rect x="0" y="8" width="72" height="8" fill="currentColor"/><rect x="0" y="16" width="80" height="8" fill="currentColor"/><rect x="0" y="24" width="24" height="8" fill="currentColor"/><rect x="48" y="24" width="32" height="8" fill="currentColor"/><rect x="0" y="32" width="24" height="8" fill="currentColor"/><rect x="48" y="32" width="32" height="8" fill="currentColor"/><rect x="0" y="40" width="72" height="8" fill="currentColor"/><rect x="0" y="48" width="72" height="8" fill="currentColor"/><rect x="0" y="56" width="72" height="8" fill="currentColor"/><rect x="0" y="64" width="24" height="8" fill="currentColor"/><rect x="32" y="64" width="24" height="8" fill="currentColor"/><rect x="0" y="72" width="24" height="8" fill="currentColor"/><rect x="32" y="72" width="32" height="8" fill="currentColor"/><rect x="0" y="80" width="24" height="8" fill="currentColor"/><rect x="40" y="80" width="24" height="8" fill="currentColor"/><rect x="0" y="88" width="24" height="8" fill="currentColor"/><rect x="40" y="88" width="32" height="8" fill="currentColor"/><rect x="0" y="96" width="24" height="8" fill="currentColor"/><rect x="48" y="96" width="32" height="8" fill="currentColor"/><rect x="96" y="0" width="24" height="8" fill="currentColor"/><rect x="144" y="0" width="24" height="8" fill="currentColor"/><rect x="96" y="8" width="24" height="8" fill="currentColor"/><rect x="144" y="8" width="24" height="8" fill="currentColor"/><rect x="96" y="16" width="24" height="8" fill="currentColor"/><rect x="144" y="16" width="24" height="8" fill="currentColor"/><rect x="96" y="24" width="24" height="8" fill="currentColor"/><rect x="144" y="24" width="24" height="8" fill="currentColor"/><rect x="96" y="32" width="24" height="8" fill="currentColor"/><rect x="144" y="32" width="24" height="8" fill="currentColor"/><rect x="96" y="40" width="24" height="8" fill="currentColor"/><rect x="144" y="40" width="24" height="8" fill="currentColor"/><rect x="96" y="48" width="24" height="8" fill="currentColor"/><rect x="144" y="48" width="24" height="8" fill="currentColor"/><rect x="96" y="56" width="24" height="8" fill="currentColor"/><rect x="144" y="56" width="24" height="8" fill="currentColor"/><rect x="96" y="64" width="24" height="8" fill="currentColor"/><rect x="144" y="64" width="24" height="8" fill="currentColor"/><rect x="96" y="72" width="24" height="8" fill="currentColor"/><rect x="144" y="72" width="24" height="8" fill="currentColor"/><rect x="96" y="80" width="72" height="8" fill="currentColor"/><rect x="104" y="88" width="56" height="8" fill="currentColor"/><rect x="112" y="96" width="40" height="8" fill="currentColor"/><rect x="184" y="0" width="56" height="8" fill="currentColor"/><rect x="184" y="8" width="64" height="8" fill="currentColor"/><rect x="184" y="16" width="72" height="8" fill="currentColor"/><rect x="184" y="24" width="24" height="8" fill="currentColor"/><rect x="224" y="24" width="32" height="8" fill="currentColor"/><rect x="184" y="32" width="24" height="8" fill="currentColor"/><rect x="224" y="32" width="32" height="8" fill="currentColor"/><rect x="184" y="40" width="24" height="8" fill="currentColor"/><rect x="224" y="40" width="24" height="8" fill="currentColor"/><rect x="184" y="48" width="24" height="8" fill="currentColor"/><rect x="224" y="48" width="24" height="8" fill="currentColor"/><rect x="184" y="56" width="24" height="8" fill="currentColor"/><rect x="224" y="56" width="24" height="8" fill="currentColor"/><rect x="184" y="64" width="24" height="8" fill="currentColor"/><rect x="224" y="64" width="24" height="8" fill="currentColor"/><rect x="184" y="72" width="24" height="8" fill="currentColor"/><rect x="224" y="72" width="24" height="8" fill="currentColor"/><rect x="184" y="80" width="64" height="8" fill="currentColor"/><rect x="184" y="88" width="56" height="8" fill="currentColor"/><rect x="184" y="96" width="48" height="8" fill="currentColor"/><rect x="272" y="0" width="24" height="8" fill="currentColor"/><rect x="320" y="0" width="24" height="8" fill="currentColor"/><rect x="272" y="8" width="24" height="8" fill="currentColor"/><rect x="320" y="8" width="24" height="8" fill="currentColor"/><rect x="272" y="16" width="32" height="8" fill="currentColor"/><rect x="320" y="16" width="24" height="8" fill="currentColor"/><rect x="280" y="24" width="24" height="8" fill="currentColor"/><rect x="312" y="24" width="32" height="8" fill="currentColor"/><rect x="280" y="32" width="56" height="8" fill="currentColor"/><rect x="288" y="40" width="48" height="8" fill="currentColor"/><rect x="288" y="48" width="40" height="8" fill="currentColor"/><rect x="296" y="56" width="24" height="8" fill="currentColor"/><rect x="296" y="64" width="24" height="8" fill="currentColor"/><rect x="296" y="72" width="24" height="8" fill="currentColor"/><rect x="296" y="80" width="24" height="8" fill="currentColor"/><rect x="296" y="88" width="24" height="8" fill="currentColor"/><rect x="296" y="96" width="24" height="8" fill="currentColor"/><rect x="380.0" y="0" width="56" height="8" fill="#F2ECE4"/><rect x="372.0" y="8" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="16" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="40" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="40" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="48" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="48" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="56" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="56" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="80" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="88" width="72" height="8" fill="#F2ECE4"/><rect x="380.0" y="96" width="56" height="8" fill="#F2ECE4"/><rect x="468.0" y="0" width="56" height="8" fill="#F2ECE4"/><rect x="460.0" y="8" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="16" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="40" width="64" height="8" fill="#F2ECE4"/><rect x="460.0" y="48" width="72" height="8" fill="#F2ECE4"/><rect x="468.0" y="56" width="64" height="8" fill="#F2ECE4"/><rect x="508.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="508.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="80" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="88" width="72" height="8" fill="#F2ECE4"/><rect x="468.0" y="96" width="56" height="8" fill="#F2ECE4"/></svg>
+    </a>
+    <div class="nav-links">
+      <a class="nl" href="#how">how it works</a>
+      <a class="nl" href="#engines">engines</a>
+      <a class="nl" href="#faq">faq</a>
+      <a class="gh" href="https://github.com/nafdalex/rudy-os" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        star
+      </a>
+      <button class="toggle" id="themeBtn" aria-label="Toggle light and dark mode">◐</button>
+      <a class="btn" href="https://github.com/nafdalex/rudy-os/releases/latest">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero-band">
+<header class="hero wrap">
+  <img class="hero-face" src="/logo.png?v=2" alt="Rudy" width="72" height="72">
+  <div class="kick">free · open source · local first</div>
+  <h1>THE OFFICE WHERE<br>AI AGENTS <span class="os">CLOCK IN</span></h1>
+  <p>Rudy OS wraps the CLI coding agents you already pay for, Claude Code, Codex, Gemini and more, and runs them as one office on your Mac: memory, mail, a task board, and a boss named Rudy who routes the work. Nothing metered.</p>
+  <a class="btn big" href="https://github.com/nafdalex/rudy-os/releases/latest">Download for macOS</a>
+
+  <div class="vid">
+    <video autoplay muted loop playsinline preload="metadata" poster="/media/video/poster.png?v=5" aria-label="A one minute walkthrough of Rudy OS">
+      <source src="/media/video/tour.mp4?v=5" type="video/mp4">
+    </video>
+  </div>
+</header>
+</div>
+
+<section class="wrap rv" id="how">
+  <div class="eyebrow">how it works</div>
+  <h2>WHAT HAPPENS WHEN YOU HIRE</h2>
+  <p class="sect-sub">Hire, hand over the job, watch the floor clock in. Three moves, then the office runs itself.</p>
+  <div class="steps">
+    <div class="step">
+      <img src="/media/img/step-hire.png?v=10" alt="The Add Agent sheet in Rudy OS: cast grid, name and color" loading="lazy" width="920" height="613">
+      <div class="in"><span class="n">01</span>
+      <h3>Hire an agent</h3>
+      <p>Contract, face and name, workspace, engine. Pick from the cast or write your own role. <b>Every hire comes loaded</b> with skills, memory, a mailbox and a desk.</p></div>
+    </div>
+    <div class="step">
+      <img src="/media/img/step-assign.png?v=8" alt="A job typed into Rudy's terminal" loading="lazy" width="784" height="522">
+      <div class="in"><span class="n">02</span>
+      <h3>Give Rudy the job</h3>
+      <p>Talk to Rudy in his terminal, in plain words. <b>He writes the cards, assigns them and routes the work.</b> Ask him to hire and he staffs the floor himself.</p></div>
+    </div>
+    <div class="step">
+      <img src="/media/img/step-done.png?v=9" alt="The task board in Rudy OS with todo, doing, blocked and done columns" loading="lazy" width="676" height="450">
+      <div class="in"><span class="n">03</span>
+      <h3>The floor clocks in</h3>
+      <p>Statuses flip, the board fills, cards land on done with their results attached. Every agent keeps <b>a record you can open later</b>.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap rv">
+  <div class="eyebrow">the harness</div>
+  <h2>WHAT EVERY HIRE GETS</h2>
+  <p class="sect-sub">Not a chat window with a costume. Each agent is a real process with a real desk and everything a colleague would have.</p>
+  <div class="kit">
+    <div class="k"><span class="ic">🧠</span><h3>Memory</h3><p>Markdown-first memory with instant semantic recall. What an agent learns on Tuesday it still knows in March.</p></div>
+    <div class="k"><span class="ic">✉️</span><h3>A mailbox</h3><p>Agents message each other through the hive. Work gets handed off desk to desk, and you can read every envelope.</p></div>
+    <div class="k"><span class="ic">🗂️</span><h3>A task board</h3><p>A shared kanban Rudy writes to: todo, doing, blocked, done. Every card keeps its result as the record.</p></div>
+    <div class="k"><span class="ic">💻</span><h3>A real terminal</h3><p>Byte-for-byte authentic sessions in real PTYs. Type into any of them at any time, it is still your CLI.</p></div>
+    <div class="k"><span class="ic">⏰</span><h3>Triggers</h3><p>Schedules, webhooks and watched channels wake the right agent while you sleep. The office has opening hours: all of them.</p></div>
+    <div class="k"><span class="ic">🛡️</span><h3>Guardrails</h3><p>Spend caps, a circuit breaker for loops, and human gates on destructive moves. Autonomy with a leash you hold.</p></div>
+  </div>
+</section>
+
+<section class="wrap rv" id="see">
+  <div class="eyebrow">full visibility</div>
+  <h2>YOU SEE EVERYTHING</h2>
+  <p class="sect-sub">No black box. Every card, every message, every desk is on your screen while it happens.</p>
+  <div class="gallery">
+    <figure><img src="/media/img/see-board.png?v=1" alt="The shared task board in Rudy OS" loading="lazy"><figcaption><b>The board.</b> Todo, doing, blocked, done, and every card keeps its result.</figcaption></figure>
+    <figure><img src="/media/img/see-graph.png?v=1" alt="The message graph in Rudy OS" loading="lazy"><figcaption><b>The graph.</b> Who talks to whom, request by request, live.</figcaption></figure>
+    <figure><img src="/media/img/see-office.png?v=1" alt="The pixel office floor in Rudy OS" loading="lazy"><figcaption><b>The office.</b> Every agent at a desk, on the clock, in real time.</figcaption></figure>
+  </div>
+</section>
+
+<section class="wrap rv" id="engines">
+  <div class="eyebrow">the engine wall</div>
+  <h2>BRING THE AGENTS YOU ALREADY PAY FOR</h2>
+  <p class="sect-sub">Rudy runs them on their own subscriptions and their own hourly limits. No new API bill, no middleman metering your tokens.</p>
+  <div class="engines">
+    <span class="engine"><svg viewBox="0 0 24 24"><path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/></svg>Claude Code</span>
+    <span class="engine"><svg viewBox="0 0 24 24"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>Codex</span>
+    <span class="engine"><svg viewBox="0 0 24 24"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg>Antigravity</span>
+    <span class="engine"><svg viewBox="0 0 24 24"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/></svg>Gemini CLI</span>
+    <span class="engine"><svg viewBox="0 0 24 24"><path d="M23.919 14.545 20.817 9.17l1.47-2.544a.56.56 0 0 0 0-.566l-1.633-2.83a.57.57 0 0 0-.49-.283h-6.207L12.487.402a.57.57 0 0 0-.49-.284H8.732a.56.56 0 0 0-.49.284L5.139 5.775h-2.94a.56.56 0 0 0-.49.284L.077 8.887a.56.56 0 0 0 0 .567L3.18 14.83l-1.47 2.545a.56.56 0 0 0 0 .566l1.634 2.83a.57.57 0 0 0 .49.283h6.205l1.47 2.545a.57.57 0 0 0 .49.284h3.266a.57.57 0 0 0 .49-.284l3.104-5.375h2.94a.57.57 0 0 0 .49-.283l1.634-2.828a.55.55 0 0 0-.004-.568M8.733.686l1.634 2.828-1.634 2.828H21.8L20.164 9.17H7.425L5.63 6.06Zm1.306 19.801-6.205-.002 1.634-2.83h3.265L2.201 6.344h3.267q3.182 5.517 6.367 11.032zm10.124-5.66L18.53 12l-6.532 11.315-1.634-2.83c2.129-3.673 4.25-7.351 6.373-11.028h3.592l3.102 5.374z"/></svg>Qwen</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>Grok</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>Kimi Code</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>Copilot CLI</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>Cursor</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>OpenCode</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>Crush</span>
+    <span class="engine"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="square"><path d="M4 6 L10 12 L4 18"/><path d="M12 18 H20"/></svg>pi.dev</span>
+  </div>
+  <p class="money">Plus bring-your-own API keys and local models. Every engine runs in a real terminal, byte for byte, rendered inside the office.</p>
+</section>
+
+<section class="wrap rv">
+  <div class="eyebrow">yours, provably</div>
+  <h2>LOCAL FIRST. OPEN SOURCE. NOTHING METERED.</h2>
+  <div class="trust">
+    <div class="tcard"><h3>Local first</h3><p>Your keys, your folders, your machine. Agents run as processes on your Mac. No server, no account, no telemetry phoning home. The only traffic is what your agents themselves do.</p></div>
+    <div class="tcard"><h3>Open source</h3><p>MIT licensed, every line readable. Trust is not a promise here, it is a diff.</p>
+      <a class="gh" href="https://github.com/nafdalex/rudy-os" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> nafdalex/rudy-os</a>
+    </div>
+    <div class="tcard"><h3>Nothing metered</h3><p>No seat price, no token markup, no usage dashboard to dread. Your agents run on the subscriptions you already have.</p></div>
+  </div>
+  <div class="freeline"><b>Free. Not a trial, not a tier.</b> You already pay for the agents; the office costs nothing.</div>
+</section>
+
+<section class="wrap rv" id="faq">
+  <div class="eyebrow">faq</div>
+  <h2>THE QUESTIONS EVERYONE ASKS</h2>
+  <div class="faq">
+    <details><summary>Does my code or data leave my machine?</summary><p>No. Agents run as processes on your Mac, in your folders, with your keys. There is no server and no account. The only network traffic is what your agents themselves do, plus a read-only check for updates.</p></details>
+    <details><summary>Will this eat my Claude subscription limits?</summary><p>It runs on the plans you already have, so yes, working agents use them, exactly as if you ran the CLI yourself. You decide how much: per-agent token caps, a floor-wide budget, and a pause button for the whole office. Nothing is marked up and nothing is metered by us.</p></details>
+    <details><summary>Can agents step on each other's work?</summary><p>Each hire can get its own git branch in an isolated worktree, so two agents never type over each other. Rudy integrates the branches and runs the final check before anything merges.</p></details>
+    <details><summary>What stops an agent from going rogue?</summary><p>A circuit breaker watches every agent and steps in when one loops or overspends: steer first, then constrain, then stop. Destructive moves can be gated behind your click, and spend caps are hard limits, not suggestions.</p></details>
+    <details><summary>Do I have to babysit it?</summary><p>No. Anything that truly needs you lands on the NEEDS YOU board as a question, and a desktop toast tells you who finished what. Everything else keeps moving while the app sits in the background.</p></details>
+    <details><summary>How is this different from five terminal tabs?</summary><p>Tabs do not talk to each other. Here every agent has memory that survives the session, a mailbox for handoffs, a shared task board, and a boss who routes work and escalates only what matters. It is coordination, not just multiplexing.</p></details>
+    <details><summary>What do I need installed?</summary><p>A Mac and at least one CLI coding agent you already use, for example Claude Code. Rudy OS finds it and runs it. More engines can be added anytime in settings.</p></details>
+    <details><summary>Is it Mac only?</summary><p>Today, yes: one universal build for Apple Silicon and Intel. Windows and Linux builds are planned, and the build configs already sit in the repo.</p></details>
+    <details><summary>Is it really free?</summary><p>Yes. Free and open source under MIT, not a trial and not a tier. You already pay for the agents; the office costs nothing.</p></details>
+  </div>
+</section>
+
+<div class="lights rv">
+  <img src="/logo.png?v=2" alt="Rudy">
+  <h2>THE OFFICE IS HIRING</h2>
+  <p>Free and open source. Download it, make your first hire, and watch the floor clock in.</p>
+  <a class="btn big" href="https://github.com/nafdalex/rudy-os/releases/latest">Download for macOS</a>
+  <div class="under">free · open source · local first</div>
+</div>
+
+<footer>
+  <div class="wrap foot2">
+    <div class="fcol fbrand">
+      <svg class="wmark small" viewBox="0 -12.0 544.0 128.0" role="img" aria-label="Rudy OS" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="360.0" y="-12.0" width="184.0" height="128.0" fill="var(--red-fill)"/><rect x="0" y="0" width="64" height="8" fill="currentColor"/><rect x="0" y="8" width="72" height="8" fill="currentColor"/><rect x="0" y="16" width="80" height="8" fill="currentColor"/><rect x="0" y="24" width="24" height="8" fill="currentColor"/><rect x="48" y="24" width="32" height="8" fill="currentColor"/><rect x="0" y="32" width="24" height="8" fill="currentColor"/><rect x="48" y="32" width="32" height="8" fill="currentColor"/><rect x="0" y="40" width="72" height="8" fill="currentColor"/><rect x="0" y="48" width="72" height="8" fill="currentColor"/><rect x="0" y="56" width="72" height="8" fill="currentColor"/><rect x="0" y="64" width="24" height="8" fill="currentColor"/><rect x="32" y="64" width="24" height="8" fill="currentColor"/><rect x="0" y="72" width="24" height="8" fill="currentColor"/><rect x="32" y="72" width="32" height="8" fill="currentColor"/><rect x="0" y="80" width="24" height="8" fill="currentColor"/><rect x="40" y="80" width="24" height="8" fill="currentColor"/><rect x="0" y="88" width="24" height="8" fill="currentColor"/><rect x="40" y="88" width="32" height="8" fill="currentColor"/><rect x="0" y="96" width="24" height="8" fill="currentColor"/><rect x="48" y="96" width="32" height="8" fill="currentColor"/><rect x="96" y="0" width="24" height="8" fill="currentColor"/><rect x="144" y="0" width="24" height="8" fill="currentColor"/><rect x="96" y="8" width="24" height="8" fill="currentColor"/><rect x="144" y="8" width="24" height="8" fill="currentColor"/><rect x="96" y="16" width="24" height="8" fill="currentColor"/><rect x="144" y="16" width="24" height="8" fill="currentColor"/><rect x="96" y="24" width="24" height="8" fill="currentColor"/><rect x="144" y="24" width="24" height="8" fill="currentColor"/><rect x="96" y="32" width="24" height="8" fill="currentColor"/><rect x="144" y="32" width="24" height="8" fill="currentColor"/><rect x="96" y="40" width="24" height="8" fill="currentColor"/><rect x="144" y="40" width="24" height="8" fill="currentColor"/><rect x="96" y="48" width="24" height="8" fill="currentColor"/><rect x="144" y="48" width="24" height="8" fill="currentColor"/><rect x="96" y="56" width="24" height="8" fill="currentColor"/><rect x="144" y="56" width="24" height="8" fill="currentColor"/><rect x="96" y="64" width="24" height="8" fill="currentColor"/><rect x="144" y="64" width="24" height="8" fill="currentColor"/><rect x="96" y="72" width="24" height="8" fill="currentColor"/><rect x="144" y="72" width="24" height="8" fill="currentColor"/><rect x="96" y="80" width="72" height="8" fill="currentColor"/><rect x="104" y="88" width="56" height="8" fill="currentColor"/><rect x="112" y="96" width="40" height="8" fill="currentColor"/><rect x="184" y="0" width="56" height="8" fill="currentColor"/><rect x="184" y="8" width="64" height="8" fill="currentColor"/><rect x="184" y="16" width="72" height="8" fill="currentColor"/><rect x="184" y="24" width="24" height="8" fill="currentColor"/><rect x="224" y="24" width="32" height="8" fill="currentColor"/><rect x="184" y="32" width="24" height="8" fill="currentColor"/><rect x="224" y="32" width="32" height="8" fill="currentColor"/><rect x="184" y="40" width="24" height="8" fill="currentColor"/><rect x="224" y="40" width="24" height="8" fill="currentColor"/><rect x="184" y="48" width="24" height="8" fill="currentColor"/><rect x="224" y="48" width="24" height="8" fill="currentColor"/><rect x="184" y="56" width="24" height="8" fill="currentColor"/><rect x="224" y="56" width="24" height="8" fill="currentColor"/><rect x="184" y="64" width="24" height="8" fill="currentColor"/><rect x="224" y="64" width="24" height="8" fill="currentColor"/><rect x="184" y="72" width="24" height="8" fill="currentColor"/><rect x="224" y="72" width="24" height="8" fill="currentColor"/><rect x="184" y="80" width="64" height="8" fill="currentColor"/><rect x="184" y="88" width="56" height="8" fill="currentColor"/><rect x="184" y="96" width="48" height="8" fill="currentColor"/><rect x="272" y="0" width="24" height="8" fill="currentColor"/><rect x="320" y="0" width="24" height="8" fill="currentColor"/><rect x="272" y="8" width="24" height="8" fill="currentColor"/><rect x="320" y="8" width="24" height="8" fill="currentColor"/><rect x="272" y="16" width="32" height="8" fill="currentColor"/><rect x="320" y="16" width="24" height="8" fill="currentColor"/><rect x="280" y="24" width="24" height="8" fill="currentColor"/><rect x="312" y="24" width="32" height="8" fill="currentColor"/><rect x="280" y="32" width="56" height="8" fill="currentColor"/><rect x="288" y="40" width="48" height="8" fill="currentColor"/><rect x="288" y="48" width="40" height="8" fill="currentColor"/><rect x="296" y="56" width="24" height="8" fill="currentColor"/><rect x="296" y="64" width="24" height="8" fill="currentColor"/><rect x="296" y="72" width="24" height="8" fill="currentColor"/><rect x="296" y="80" width="24" height="8" fill="currentColor"/><rect x="296" y="88" width="24" height="8" fill="currentColor"/><rect x="296" y="96" width="24" height="8" fill="currentColor"/><rect x="380.0" y="0" width="56" height="8" fill="#F2ECE4"/><rect x="372.0" y="8" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="16" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="40" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="40" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="48" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="48" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="56" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="56" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="420.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="372.0" y="80" width="72" height="8" fill="#F2ECE4"/><rect x="372.0" y="88" width="72" height="8" fill="#F2ECE4"/><rect x="380.0" y="96" width="56" height="8" fill="#F2ECE4"/><rect x="468.0" y="0" width="56" height="8" fill="#F2ECE4"/><rect x="460.0" y="8" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="16" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="24" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="32" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="40" width="64" height="8" fill="#F2ECE4"/><rect x="460.0" y="48" width="72" height="8" fill="#F2ECE4"/><rect x="468.0" y="56" width="64" height="8" fill="#F2ECE4"/><rect x="508.0" y="64" width="24" height="8" fill="#F2ECE4"/><rect x="508.0" y="72" width="24" height="8" fill="#F2ECE4"/><rect x="460.0" y="80" width="72" height="8" fill="#F2ECE4"/><rect x="460.0" y="88" width="72" height="8" fill="#F2ECE4"/><rect x="468.0" y="96" width="56" height="8" fill="#F2ECE4"/></svg>
+      <p>An office of AI agents on your Mac. Free, open source, local first, nothing metered.</p>
+    </div>
+    <div class="fcol"><h4>Product</h4>
+      <a href="#how">How it works</a>
+      <a href="#see">Full visibility</a>
+      <a href="#engines">Engines</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/nafdalex/rudy-os/releases/latest">Download</a>
+    </div>
+    <div class="fcol"><h4>Project</h4>
+      <a href="https://github.com/nafdalex/rudy-os" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/nafdalex/rudy-os/issues" target="_blank" rel="noopener">Report an issue</a>
+      <a href="https://github.com/nafdalex/rudy-os/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/nafdalex/rudy-os/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+    </div>
+  </div>
+  <div class="wrap foot-base">The office is open. Free forever, MIT licensed, made for the Mac.</div>
+</footer>
+
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('rudy-theme'); } catch (e) {}
+    var theme = saved || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    document.getElementById('themeBtn').addEventListener('click', function () {
+      var light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (light) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('rudy-theme', light ? 'dark' : 'light'); } catch (e) {}
+    });
+  })();
+  (function () {
+    var els = document.querySelectorAll('.rv');
+    if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12 });
+    els.forEach(function (e) { io.observe(e); });
+  })();
+</script>
 </body>
 </html>

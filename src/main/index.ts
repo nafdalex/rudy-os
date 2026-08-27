@@ -895,6 +895,8 @@ function syncContextTriggers(): void {
  *  re-clears `archived` — restorability does not depend on the archived flag. */
 function archiveOrphanedAgents(): void {
   if (!hive.enabled()) return;
+  // Demo showcase (filming/screenshots): keep the seeded roster on the floor.
+  if (process.env.CTH_DEMO_KEEP_ROSTER === '1') return;
   try {
     const reg = hive.registry();
     for (const [id, a] of Object.entries(reg.agents)) {

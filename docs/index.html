@@ -116,18 +116,16 @@
   .schem-head .t { font-family: var(--px); font-size: 9px; letter-spacing: 0.08em; color: #F2ECE4; }
   .schem-legend { margin-left: auto; display: flex; gap: 14px; font-size: 10px; color: #B8B2A6; }
   .schem-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-  .sgrid { display: grid; grid-template-columns: 168px 44px 1fr 44px 236px; align-items: stretch; }
-  .scol-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; color: #837E75; text-transform: uppercase; margin-bottom: 10px; }
-  .snode { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; margin-bottom: 12px; }
+  .sgrid { display: grid; grid-template-columns: 170px 1fr 240px; column-gap: 46px; align-items: start; position: relative; }
+  .schem-body { position: relative; }
+  #schemSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .sgrid > * { position: relative; z-index: 1; }
+  .scol-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; color: #837E75; text-transform: uppercase; margin-bottom: 10px; height: 14px; }
+  .snode { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; margin-bottom: 14px; }
   .snode b { display: block; font-size: 11.5px; letter-spacing: 0.04em; }
   .snode .pay { display: block; margin-top: 5px; font-size: 10px; color: #B8B2A6; background: #1C1A18; border: 1px solid #35322E; border-radius: 5px; padding: 4px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sedge { position: relative; }
-  .sedge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .sedge path { fill: none; stroke: #E8B93C; stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0.9; }
-  .sedge .coral { stroke: #E5484D; }
-  .sedge .mint { stroke: #7FBD8A; }
-  .sedge .achip { position: absolute; z-index: 2; font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
-  .soffice { border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 16px 16px; position: relative; }
+  .achip { position: absolute; z-index: 2; font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; white-space: nowrap; transform: translate(-50%, -50%); }
+  .soffice { margin-top: 24px; border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 16px 16px; position: relative; }
   .stag { position: absolute; top: -8px; left: 14px; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #B8B2A6; text-transform: uppercase; }
   .sboss { display: flex; gap: 12px; align-items: center; background: #242220; border: 1px solid #4A463F; border-radius: 10px; padding: 11px 16px; width: max-content; margin: 0 auto; position: relative; }
   .sboss img { width: 38px; height: 38px; border-radius: 9px; image-rendering: pixelated; }
@@ -141,7 +139,7 @@
   .sband path { fill: none; stroke: #E8B93C; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .sband .achip { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5B8FA8; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; }
   .stip { position: absolute; bottom: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: #E8B93C; transform: translateX(-5px); }
-  .sworkers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .sworkers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 38px; }
   .sworker { background: #242220; border: 1px solid #3A3733; border-radius: 10px; padding: 11px 11px 12px; }
   .sworker .who { display: flex; gap: 9px; align-items: center; }
   .sworker img { width: 30px; height: 30px; border-radius: 8px; image-rendering: pixelated; }
@@ -165,7 +163,7 @@
   .lad .sp { background: rgba(229,72,77,0.18); color: #E5484D; }
   .sfile { border: 1px solid #35322E; border-radius: 4px; padding: 1px 7px; font-size: 9px; color: #B8B2A6; font-family: var(--mono); }
   .s247 { background: #E8B93C; color: #26222E; font-weight: 700; border-radius: 999px; padding: 4px 20px; width: max-content; margin: 14px auto 0; font-size: 11px; letter-spacing: 0.06em; }
-  .syou { border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 14px 14px; position: relative; margin-top: 0; }
+  .syou { border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 14px 14px; position: relative; margin-top: 24px; }
   .sybox { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; font-size: 10.5px; color: #B8B2A6; margin-bottom: 10px; }
   .sybox b { color: #F2ECE4; display: block; font-size: 11.5px; margin-bottom: 3px; }
   .sybox .card { margin-top: 6px; background: #1C1A18; border: 1px solid #35322E; border-left: 3px solid #E5484D; border-radius: 5px; padding: 6px 9px; font-size: 10px; }
@@ -174,7 +172,8 @@
   .sgate { border: 1px solid #4A463F; border-radius: 999px; text-align: center; padding: 6px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #E8B93C; text-transform: uppercase; }
   @media (max-width: 900px) {
     .sgrid { grid-template-columns: 1fr; }
-    .sedge { height: 40px; }
+    #schemSvg, .achip { display: none; }
+    .sworkers { margin-top: 12px; }
     .schem-legend { margin-left: 0; }
   }
 
@@ -282,62 +281,47 @@
         <span><i style="background:#E5484D"></i>escalate</span>
       </div>
     </div>
+    <div class="schem-body">
+    <svg id="schemSvg" aria-hidden="true">
+      <defs>
+        <marker id="mGold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#E8B93C"/></marker>
+        <marker id="mCoral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#E5484D"/></marker>
+        <marker id="mMint" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7FBD8A"/></marker>
+      </defs>
+    </svg>
+    <span class="achip" id="chipReq" style="color:#5B8FA8;">request</span>
+    <span class="achip" id="chipEsc" style="color:#E5484D;">escalate</span>
+    <span class="achip" id="chipAns" style="color:#7FBD8A;">answer</span>
     <div class="sgrid">
       <div>
         <div class="scol-label">work arrives</div>
-        <div class="snode"><b>YOU</b><span class="pay">❯ ship the pricing page</span></div>
-        <div class="snode"><b>SCHEDULE</b><span class="pay">09:00 · morning triage</span></div>
-        <div class="snode"><b>WEBHOOK</b><span class="pay">POST /hook · PR #142</span></div>
+        <div class="snode" id="sn1"><b>YOU</b><span class="pay">❯ ship the pricing page</span></div>
+        <div class="snode" id="sn2"><b>SCHEDULE</b><span class="pay">09:00 · morning triage</span></div>
+        <div class="snode" id="sn3"><b>WEBHOOK</b><span class="pay">POST /hook · PR #142</span></div>
       </div>
-      <div class="sedge">
-        <svg viewBox="0 0 44 330" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M 0 62 C 26 62, 18 96, 44 96"/>
-          <path d="M 0 148 C 26 148, 18 104, 44 100"/>
-          <path d="M 0 232 C 26 232, 16 110, 44 104"/>
-        </svg>
-      </div>
-      <div class="soffice">
+      <div class="soffice" id="soffice">
         <span class="stag">the office · your mac</span>
-        <div class="sboss"><span class="live"></span><img src="/media/cast/hire-rudy.png" alt="Rudy" width="38" height="38"><span><b>RUDY · the boss</b><span class="duty">drains the inbox · reads the fleet · sole scribe of the board</span></span></div>
-        <div class="scontract"><b>dispatch = a contract</b> · objective · output · tools · boundaries</div>
-        <div class="sband">
-          <svg viewBox="0 0 300 34" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M 150 2 C 150 18, 50 14, 50 32"/>
-            <path d="M 150 2 C 150 16, 150 16, 150 32"/>
-            <path d="M 150 2 C 150 18, 250 14, 250 32"/>
-          </svg>
-          <span class="stip" style="left:16.66%;"></span>
-          <span class="stip" style="left:50%;"></span>
-          <span class="stip" style="left:83.33%;"></span>
-          <span class="achip" style="left:27%;">request</span>
-        </div>
+        <div class="sboss" id="sboss"><span class="live"></span><img src="/media/cast/hire-rudy.png" alt="Rudy" width="38" height="38"><span><b>RUDY · the boss</b><span class="duty">drains the inbox · reads the fleet · sole scribe of the board</span></span></div>
+        <div class="scontract" id="scontract"><b>dispatch = a contract</b> · objective · output · tools · boundaries</div>
         <div class="sworkers">
-          <div class="sworker"><span class="who"><img src="/media/cast/hire-theo.png" alt="Theo" width="30" height="30"><span><b>Theo</b><span class="role">frontend</span></span></span><span class="stat">● working · Edit checkout.tsx</span><div class="sgauge"><i style="width:14%"></i></div><span class="ctx">ctx 142k / 1M</span><span class="schips"><span class="schip eng">▸ Claude Code</span><span class="schip">design-tokens</span><span class="schip">contrast-pass</span></span></div>
-          <div class="sworker"><span class="who"><img src="/media/cast/hire-mara.png" alt="Mara" width="30" height="30"><span><b>Mara</b><span class="role">backend</span></span></span><span class="stat">● working · Bash npm test</span><div class="sgauge"><i style="width:31%"></i></div><span class="ctx">ctx 310k / 1M</span><span class="schips"><span class="schip eng">▸ Codex</span><span class="schip">payments</span><span class="schip">orders-api</span></span></div>
-          <div class="sworker"><span class="who"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="30" height="30"><span><b>Ravi</b><span class="role">search</span></span></span><span class="stat think">◐ thinking · typo distance</span><div class="sgauge"><i style="width:8%"></i></div><span class="ctx">ctx 81k / 1M</span><span class="schips"><span class="schip eng">▸ Gemini CLI</span><span class="schip">search-index</span><span class="schip">typo-tuning</span></span></div>
+          <div class="sworker" id="sw1"><span class="who"><img src="/media/cast/hire-theo.png" alt="Theo" width="30" height="30"><span><b>Theo</b><span class="role">frontend</span></span></span><span class="stat">● working · Edit checkout.tsx</span><div class="sgauge"><i style="width:14%"></i></div><span class="ctx">ctx 142k / 1M</span><span class="schips"><span class="schip eng">▸ Claude Code</span><span class="schip">design-tokens</span><span class="schip">contrast-pass</span></span></div>
+          <div class="sworker" id="sw2"><span class="who"><img src="/media/cast/hire-mara.png" alt="Mara" width="30" height="30"><span><b>Mara</b><span class="role">backend</span></span></span><span class="stat">● working · Bash npm test</span><div class="sgauge"><i style="width:31%"></i></div><span class="ctx">ctx 310k / 1M</span><span class="schips"><span class="schip eng">▸ Codex</span><span class="schip">payments</span><span class="schip">orders-api</span></span></div>
+          <div class="sworker" id="sw3"><span class="who"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="30" height="30"><span><b>Ravi</b><span class="role">search</span></span></span><span class="stat think">◐ thinking · typo distance</span><div class="sgauge"><i style="width:8%"></i></div><span class="ctx">ctx 81k / 1M</span><span class="schips"><span class="schip eng">▸ Gemini CLI</span><span class="schip">search-index</span><span class="schip">typo-tuning</span></span></div>
         </div>
         <div class="srail"><span class="rk">guardrails</span><span class="lad"><span class="ok">healthy</span><span class="st">steer</span><span class="co">constrain</span><span class="sp">stop</span></span><span>· spend caps are hard limits · destructive moves gate on you</span></div>
         <div class="srail"><span class="rk">the office is files</span><span class="sfile">board.md</span><span class="sfile">tasks.json</span><span class="sfile">registry.json</span><span class="sfile">log.jsonl</span><span class="sfile">memory.md</span><span>· read it all with cat</span></div>
         <div class="s247">⟳ 24/7</div>
       </div>
-      <div class="sedge">
-        <svg viewBox="0 0 44 330" preserveAspectRatio="none" aria-hidden="true">
-          <path class="coral" d="M 0 96 C 22 96, 22 96, 44 96"/>
-          <path class="mint" d="M 44 210 C 22 210, 22 210, 0 210"/>
-        </svg>
-        <span class="achip" style="left:50%; top:96px; transform:translate(-50%,-50%); color:#E5484D;">escalate</span>
-        <span class="achip" style="left:50%; top:210px; transform:translate(-50%,-50%); color:#7FBD8A;">answer</span>
-      </div>
       <div>
-        <div class="scol-label">&nbsp;</div>
-        <div class="syou">
+        <div class="syou" id="syou">
           <span class="stag">you · wherever you are</span>
-          <div class="sybox"><b>The NEEDS YOU board</b>one place for every open question<span class="card"><span class="q">?</span> Mara: verify shop.example.com as the sender domain</span></div>
-          <div class="sybox"><b>One reply, and it moves</b>your answer lands in Rudy's inbox, the card unblocks, the floor never stopped for it <span class="ok">✓</span></div>
+          <div class="sybox" id="sy1"><b>The NEEDS YOU board</b>one place for every open question<span class="card"><span class="q">?</span> Mara: verify shop.example.com as the sender domain</span></div>
+          <div class="sybox" id="sy2"><b>One reply, and it moves</b>your answer lands in Rudy's inbox, the card unblocks, the floor never stopped for it <span class="ok">✓</span></div>
           <div class="sybox"><b>A toast when work lands</b>Theo finished the dark theme <span class="ok">✓</span> · his transcript is the receipt</div>
-          <div class="sgate">the only gate in the building is you</div>
+          <div class="sgate">the only gate is you</div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </section>
@@ -481,6 +465,43 @@
       entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
     }, { threshold: 0.12 });
     els.forEach(function (e) { io.observe(e); });
+  })();
+
+  (function () {
+    var body = document.querySelector('.schem-body');
+    if (!body) return;
+    var svg = document.getElementById('schemSvg');
+    var NS = 'http://www.w3.org/2000/svg';
+    function R(id) { var el = document.getElementById(id); var b = body.getBoundingClientRect(); var r = el.getBoundingClientRect();
+      return { l: r.left - b.left, r: r.right - b.left, t: r.top - b.top, b: r.bottom - b.top, cx: r.left - b.left + r.width / 2, cy: r.top - b.top + r.height / 2 }; }
+    function path(d, color, marker) { var p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', color);
+      p.setAttribute('stroke-width', '1.5'); p.setAttribute('marker-end', 'url(#' + marker + ')'); svg.appendChild(p); }
+    function chip(id, x, y) { var c = document.getElementById(id); c.style.left = x + 'px'; c.style.top = y + 'px'; }
+    function draw() {
+      if (window.innerWidth <= 900) return;
+      Array.prototype.slice.call(svg.querySelectorAll('path:not(marker path)')).forEach(function (p) { if (p.parentNode === svg) svg.removeChild(p); });
+      var boss = R('sboss');
+      ['sn1', 'sn2', 'sn3'].forEach(function (id) {
+        var n = R(id); var mx = (n.r + boss.l) / 2;
+        path('M ' + n.r + ' ' + n.cy + ' C ' + mx + ' ' + n.cy + ', ' + mx + ' ' + boss.cy + ', ' + (boss.l - 3) + ' ' + boss.cy, '#E8B93C', 'mGold');
+      });
+      ['sw1', 'sw2', 'sw3'].forEach(function (id) {
+        var w = R(id); var sc = R('scontract');
+        path('M ' + sc.cx + ' ' + (sc.b + 2) + ' C ' + sc.cx + ' ' + (sc.b + 18) + ', ' + w.cx + ' ' + (w.t - 16) + ', ' + w.cx + ' ' + (w.t - 3), '#E8B93C', 'mGold');
+      });
+      var sc2 = R('scontract'), w2 = R('sw2');
+      chip('chipReq', (sc2.cx + w2.cx) / 2 - 60, (sc2.b + w2.t) / 2);
+      var off = R('soffice'), sy1 = R('sy1'), sy2 = R('sy2');
+      var exY = boss.cy, exX = off.r;
+      path('M ' + exX + ' ' + exY + ' C ' + (exX + 24) + ' ' + exY + ', ' + (sy1.l - 24) + ' ' + sy1.cy + ', ' + (sy1.l - 3) + ' ' + sy1.cy, '#E5484D', 'mCoral');
+      chip('chipEsc', (exX + sy1.l) / 2, (exY + sy1.cy) / 2 - 12);
+      path('M ' + sy2.l + ' ' + sy2.cy + ' C ' + (sy2.l - 24) + ' ' + sy2.cy + ', ' + (off.r + 24) + ' ' + (sy2.cy + 30) + ', ' + (off.r + 3) + ' ' + (sy2.cy + 30), '#7FBD8A', 'mMint');
+      chip('chipAns', (off.r + sy2.l) / 2, sy2.cy + 26);
+    }
+    var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(draw, 120); });
+    if (document.readyState === 'complete') { draw(); setTimeout(draw, 400); }
+    else window.addEventListener('load', function () { draw(); setTimeout(draw, 400); });
   })();
 </script>
 </body>

@@ -171,9 +171,12 @@
   .sybox .ok { color: #7FBD8A; font-weight: 700; }
   .sgate { border: 1px solid #4A463F; border-radius: 999px; text-align: center; padding: 6px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #E8B93C; text-transform: uppercase; }
   @media (max-width: 900px) {
-    .sgrid { grid-template-columns: 1fr; }
+    .sgrid { grid-template-columns: 1fr; row-gap: 16px; }
     #schemSvg, .achip { display: none; }
-    .sworkers { margin-top: 12px; }
+    .sworkers { margin-top: 12px; grid-template-columns: 1fr; }
+    .schem { padding: 18px 14px 18px; }
+    .soffice, .syou { margin-top: 0; padding: 20px 12px 14px; }
+    .snode { margin-bottom: 10px; }
     .schem-legend { margin-left: 0; }
   }
 

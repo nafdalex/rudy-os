@@ -116,10 +116,10 @@
   .schem-head .t { font-family: var(--px); font-size: 9px; letter-spacing: 0.08em; color: #F2ECE4; }
   .schem-legend { margin-left: auto; display: flex; gap: 14px; font-size: 10px; color: #B8B2A6; }
   .schem-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-  .sgrid { display: grid; grid-template-columns: 170px 1fr 240px; column-gap: 46px; align-items: start; position: relative; }
+  .sgrid { display: grid; grid-template-columns: 156px minmax(0, 1fr) 228px; column-gap: 36px; align-items: start; position: relative; }
   .schem-body { position: relative; }
   #schemSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-  .sgrid > * { position: relative; z-index: 1; }
+  .sgrid > * { position: relative; z-index: 1; min-width: 0; }
   .scol-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; color: #837E75; text-transform: uppercase; margin-bottom: 10px; height: 14px; }
   .snode { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; margin-bottom: 14px; }
   .snode b { display: block; font-size: 11.5px; letter-spacing: 0.04em; }
@@ -127,12 +127,12 @@
   .achip { position: absolute; z-index: 2; font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; white-space: nowrap; transform: translate(-50%, -50%); }
   .soffice { margin-top: 24px; border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 16px 16px; position: relative; }
   .stag { position: absolute; top: -8px; left: 14px; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #B8B2A6; text-transform: uppercase; }
-  .sboss { display: flex; gap: 12px; align-items: center; background: #242220; border: 1px solid #4A463F; border-radius: 10px; padding: 11px 16px; width: max-content; margin: 0 auto; position: relative; }
+  .sboss { display: flex; gap: 12px; align-items: center; background: #242220; border: 1px solid #4A463F; border-radius: 10px; padding: 11px 16px; width: max-content; max-width: 100%; margin: 0 auto; position: relative; }
   .sboss img { width: 38px; height: 38px; border-radius: 9px; image-rendering: pixelated; }
   .sboss b { font-size: 13px; display: block; }
   .sboss .duty { font-size: 10.5px; color: #B8B2A6; display: block; }
   .sboss .live { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #7FBD8A; box-shadow: 0 0 6px #7FBD8A; }
-  .scontract { width: max-content; margin: 10px auto 0; font-size: 10px; color: #B8B2A6; border: 1px dashed #4A463F; border-radius: 7px; padding: 5px 12px; }
+  .scontract { width: max-content; max-width: 100%; margin: 10px auto 0; font-size: 10px; color: #B8B2A6; border: 1px dashed #4A463F; border-radius: 7px; padding: 5px 12px; }
   .scontract b { color: #E8B93C; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; }
   .sband { position: relative; height: 34px; }
   .sband svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -153,7 +153,7 @@
   .schips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
   .schip { border: 1px solid #3A3733; border-radius: 4px; padding: 1px 6px; font-size: 8.5px; color: #B8B2A6; }
   .schip.eng { color: #F2ECE4; font-weight: 700; border-color: #4A463F; }
-  .srail { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid #3A3733; border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: 10px; color: #B8B2A6; }
+  .srail { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; border: 1px solid #3A3733; border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: 9.5px; color: #B8B2A6; }
   .srail .rk { color: #F2ECE4; font-weight: 700; font-size: 10.5px; }
   .lad { display: inline-flex; gap: 4px; }
   .lad span { border-radius: 999px; padding: 1px 8px; font-size: 8.5px; font-weight: 700; }
@@ -482,9 +482,12 @@
       if (window.innerWidth <= 900) return;
       Array.prototype.slice.call(svg.querySelectorAll('path:not(marker path)')).forEach(function (p) { if (p.parentNode === svg) svg.removeChild(p); });
       var boss = R('sboss');
-      ['sn1', 'sn2', 'sn3'].forEach(function (id) {
-        var n = R(id); var mx = (n.r + boss.l) / 2;
-        path('M ' + n.r + ' ' + n.cy + ' C ' + mx + ' ' + n.cy + ', ' + mx + ' ' + boss.cy + ', ' + (boss.l - 3) + ' ' + boss.cy, '#E8B93C', 'mGold');
+      ['sn1', 'sn2', 'sn3'].forEach(function (id, i) {
+        var n = R(id);
+        var ty = boss.cy + (i - 1) * 12;
+        var m1 = n.r + (boss.l - n.r) * (0.35 + i * 0.1);
+        var m2 = n.r + (boss.l - n.r) * (0.7 + i * 0.06);
+        path('M ' + n.r + ' ' + n.cy + ' C ' + m1 + ' ' + n.cy + ', ' + m2 + ' ' + ty + ', ' + (boss.l - 3) + ' ' + ty, '#E8B93C', 'mGold');
       });
       ['sw1', 'sw2', 'sw3'].forEach(function (id) {
         var w = R(id); var sc = R('scontract');

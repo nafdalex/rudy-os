@@ -141,7 +141,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 > the on-disk namespaces. Everything else is the same floor: real CLI agents in real
 > terminals, shared long-term memory, inter-agent mail, and Rudy running it.
 > macOS (signed & notarized), Windows, and Linux builds are on the
-> [releases page](https://github.com/rudydoes/rudy-os/releases/latest).
+> [releases page](https://github.com/nafdalex/rudy-os/releases/latest).
 
 <div align="right">(<a href="#rudy-os">↑ back to top</a>)</div>
 
@@ -167,7 +167,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 ### Install & run
 
 ```bash
-git clone https://github.com/rudydoes/rudy-os.git
+git clone https://github.com/nafdalex/rudy-os.git
 cd rudy-os
 npm install        # postinstall rebuilds node-pty against Electron's ABI
 npm run dev        # launches the Electron app with hot reload

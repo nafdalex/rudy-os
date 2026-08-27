@@ -9,7 +9,7 @@
   "homepage": "https://rudydoes.com/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rudydoes/rudy-os.git"
+    "url": "https://github.com/nafdalex/rudy-os.git"
   },
   "scripts": {
     "dev": "electron-vite dev",

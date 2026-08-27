@@ -21,13 +21,13 @@ Messaging, routing, and remembering, coordinated by Rudy, who you talk to. Local
 
 | macOS | |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Rudy-OS-0.5.0-mac-universal.dmg`](https://github.com/rudydoes/rudy-os/releases/latest/download/Rudy-OS-0.5.0-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Rudy-OS-0.5.0-mac-universal.dmg`](https://github.com/nafdalex/rudy-os/releases/latest/download/Rudy-OS-0.5.0-mac-universal.dmg) |
 
 Windows and Linux builds: coming soon.
 
-[Source code (zip)](https://github.com/rudydoes/rudy-os/archive/refs/tags/v0.5.0.zip) ·
-[Source code (tar.gz)](https://github.com/rudydoes/rudy-os/archive/refs/tags/v0.5.0.tar.gz)
+[Source code (zip)](https://github.com/nafdalex/rudy-os/archive/refs/tags/v0.5.0.zip) ·
+[Source code (tar.gz)](https://github.com/nafdalex/rudy-os/archive/refs/tags/v0.5.0.tar.gz)
 
 ---
 
-Free and open source (MIT). Built by [Alex Nacul](https://github.com/rudydoes).
+Free and open source (MIT). Built by [Alex Nacul](https://github.com/nafdalex).

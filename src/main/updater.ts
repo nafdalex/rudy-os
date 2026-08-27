@@ -47,7 +47,7 @@ import { reduceStatus, clampPercent, isNewer, installerUrl, type UpdateStatus } 
 // The GitHub repo releases are cut from. Must match electron-builder.yml's
 // `publish` block and shared/updateState.ts, or the primary updater and the
 // fallback poll disagree and one of them 404s.
-const REPO = 'rudydoes/rudy-os';
+const REPO = 'nafdalex/rudy-os';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 const FALLBACK_CACHE_MS = 60 * 60 * 1000;     // 1h between releases/latest polls
 

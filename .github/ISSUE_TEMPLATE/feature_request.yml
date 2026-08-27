@@ -9,7 +9,7 @@ body:
         a shot of the screen as it is today, with the gap in it. It is the fastest
         way to make a proposal concrete, and it stops good ideas dying as prose.
         Ideas still forming are better in
-        [Discussions](https://github.com/rudydoes/rudy-os/discussions).
+        [Discussions](https://github.com/nafdalex/rudy-os/discussions).
   - type: textarea
     id: problem
     attributes:

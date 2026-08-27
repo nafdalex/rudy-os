@@ -139,7 +139,7 @@ jobs:
               '',
               `_Genuinely nothing to show — a CI tweak, a typo, a dependency bump? A maintainer can apply the \`${WAIVER}\` label. Please don't ask unless it truly has no observable effect._`,
               '',
-              '📖 [CONTRIBUTING.md → Evidence is mandatory](https://github.com/rudydoes/rudy-os/blob/main/CONTRIBUTING.md#evidence-is-mandatory)'
+              '📖 [CONTRIBUTING.md → Evidence is mandatory](https://github.com/nafdalex/rudy-os/blob/main/CONTRIBUTING.md#evidence-is-mandatory)'
             ].join('\n');
 
             if (mine) {

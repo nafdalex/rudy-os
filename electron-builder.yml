@@ -8,7 +8,7 @@ copyright: Copyright © 2026 Alex Nacul
 # knows which repo to poll.
 publish:
   provider: github
-  owner: rudydoes
+  owner: nafdalex
   repo: rudy-os
 
 # Notarize + staple after signing, but only when APPLE_* creds are in the env

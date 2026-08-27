@@ -13,7 +13,7 @@ import { getText } from './fetchText';
 import { parseHeroPayload, DEFAULT_HERO, type HeroPayload } from '../shared/heroPayload';
 
 const HERO_URL =
-  'https://raw.githubusercontent.com/rudydoes/rudy-os/main/docs/hero.json';
+  'https://raw.githubusercontent.com/nafdalex/rudy-os/main/docs/hero.json';
 /** Plan copy and sponsors change on a human timescale. */
 const TTL_MS = 6 * 60 * 60 * 1000;
 

@@ -74,7 +74,7 @@ if (fs.existsSync(llms)) {
 }
 
 async function checkLive() {
-  const base = 'https://github.com/rudydoes/rudy-os/releases/latest/download/';
+  const base = 'https://github.com/nafdalex/rudy-os/releases/latest/download/';
   for (const name of [...assets, 'SHA256SUMS.txt']) {
     let status = 0;
     try {

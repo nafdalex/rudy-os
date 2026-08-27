@@ -33,7 +33,7 @@ export type UpdateStatus =
 
 export type UpdateAction = 'none' | 'check' | 'download' | 'restart' | 'open-release' | 'manual';
 
-export const REPO = 'rudydoes/rudy-os';
+export const REPO = 'nafdalex/rudy-os';
 
 /** The installer for THIS machine in the release tagged v{version}, by the
  *  names electron-builder.yml produces. Used when a status carries no

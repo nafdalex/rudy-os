@@ -43,5 +43,5 @@ for the first release under the new name.
 - Deep links, MCP server ids, agy hook groups and the hive bridge all move onto the `rudy`
   namespace. Existing installs keep the previous files on disk until they are removed by hand.
 
-[Unreleased]: https://github.com/rudydoes/rudy-os/compare/v0.3.2...HEAD
-[0.3.2]: https://github.com/rudydoes/rudy-os/releases/tag/v0.3.2
+[Unreleased]: https://github.com/nafdalex/rudy-os/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/nafdalex/rudy-os/releases/tag/v0.3.2

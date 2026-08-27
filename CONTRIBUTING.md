@@ -14,7 +14,7 @@ participating, you agree to uphold it.
 ### Prerequisites
 
 - **macOS, Windows, or Linux** — signed/notarized macOS builds, plus Windows and
-  Linux builds, ship from the [releases page](https://github.com/rudydoes/rudy-os/releases/latest).
+  Linux builds, ship from the [releases page](https://github.com/nafdalex/rudy-os/releases/latest).
   Cross-platform smoke-testing and fixes are still very welcome (see
   [Good first areas](#good-first-areas)).
 - **Node.js 18+** and npm.
@@ -101,7 +101,7 @@ gone up. These are closed rather than negotiated:
 - **Wholesale reformatting** of files, or a diff where the real change is buried
   in whitespace and import reordering.
 - **A rewrite nobody asked for.** Large architectural changes need an issue or a
-  [discussion](https://github.com/rudydoes/rudy-os/discussions) with
+  [discussion](https://github.com/nafdalex/rudy-os/discussions) with
   agreement **before** you write the code. We would rather say no to a paragraph
   than to a week of your work.
 - **Generated or unattributed content** — art that isn't yours or compatibly

@@ -110,54 +110,72 @@
   @media (max-width: 760px) { .step { grid-template-columns: 1fr; } .step:nth-child(even) img { order: 0; } }
 
 
-  /* the office, drawn: boss, floor, and the one lane that reaches you */
-  .diag { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 30px 26px 26px; margin-top: 40px; text-align: left; }
-  .diag-grid { display: grid; grid-template-columns: 1fr 148px 252px; align-items: start; }
-  .dkick { height: 96px; }
-  .dkick-label { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--text-faint); text-transform: uppercase; text-align: center; }
-  .dchips { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-  .dchip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 6px 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
-  .dband { position: relative; height: 36px; }
-  .dband svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .dband path { fill: none; stroke: var(--gold); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-  .dtip { position: absolute; bottom: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--gold); transform: translateX(-5px); }
-  .dlane { border: 1.5px dashed var(--line); border-radius: 12px; padding: 26px 18px 18px; position: relative; }
-  .dtag { position: absolute; top: -9px; left: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 2px 11px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; }
-  .dboss { display: flex; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; width: max-content; margin: 0 auto; position: relative; }
-  .dboss img { width: 38px; height: 38px; border-radius: 9px; image-rendering: pixelated; }
-  .dboss b { font-size: 13.5px; display: block; }
-  .dboss span { font-size: 11.5px; color: var(--text-dim); }
-  .dboss .live { position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
-  .dworkers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .dworker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 10px 13px; text-align: center; }
-  .dworker img { width: 32px; height: 32px; border-radius: 8px; image-rendering: pixelated; margin: 0 auto 7px; }
-  .dworker b { font-size: 12px; display: block; }
-  .dworker .role { font-size: 10.5px; color: var(--text-dim); display: block; margin-top: 1px; }
-  .dengine { display: inline-block; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 2px 8px; font-size: 9.5px; font-weight: 700; color: var(--text-dim); margin-top: 7px; }
-  .dskills { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 7px; }
-  .dskill { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 9px; color: var(--text-faint); }
-  .dnote { border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; font-size: 11.5px; color: var(--text-dim); margin-top: 10px; }
-  .dnote code { color: var(--text); font-weight: 700; font-family: var(--mono); }
-  .dpill { background: var(--gold); color: #26222E; font-weight: 700; border-radius: 999px; padding: 5px 22px; width: max-content; margin: 16px auto 0; font-size: 11.5px; letter-spacing: 0.06em; }
-  .dpill.quiet { background: transparent; border: 1px solid var(--line); color: var(--text-dim); margin-top: 12px; }
-  .dmid { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 0 14px; margin-top: 96px; min-height: 420px; }
-  .dmid .lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; }
-  .dmid .quote { font-size: 10.5px; color: var(--text-faint); text-align: center; }
-  .darrow { position: relative; height: 2px; width: 100%; background: var(--gold); }
-  .darrow::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--gold); }
-  .darrow.back { background: var(--mint); }
-  .darrow.back::after { right: auto; left: -1px; border-left-color: transparent; border-right-color: var(--mint); }
-  .dmidchip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; margin: 8px 0; white-space: nowrap; }
-  .dyou { margin-top: 96px; }
-  .dybox { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; }
-  .dybox b { color: var(--text); display: block; font-size: 12px; margin-bottom: 3px; }
-  .dybox .ok { color: var(--mint); font-weight: 700; }
-  .dybox .q { display: inline-block; background: #8b7bd8; color: #fff; border-radius: 4px; font-size: 10px; font-weight: 700; padding: 0 5px; }
-  @media (max-width: 860px) {
-    .diag-grid { grid-template-columns: 1fr; }
-    .dmid { margin-top: 0; min-height: 0; padding: 20px 0; }
-    .darrow, .darrow.back { width: 60%; }
-    .dyou { margin-top: 14px; }
+  /* the office schematic: a dark plate, the real loop drawn on it */
+  .schem { background: #1C1A18; border: 1px solid #3A3733; border-radius: 14px; padding: 22px 24px 24px; margin-top: 40px; text-align: left; color: #F2ECE4; font-size: 12px; box-shadow: 0 24px 60px var(--shadow); }
+  .schem-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid #3A3733; padding-bottom: 14px; margin-bottom: 20px; }
+  .schem-head .t { font-family: var(--px); font-size: 9px; letter-spacing: 0.08em; color: #F2ECE4; }
+  .schem-legend { margin-left: auto; display: flex; gap: 14px; font-size: 10px; color: #B8B2A6; }
+  .schem-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .sgrid { display: grid; grid-template-columns: 168px 44px 1fr 44px 236px; align-items: stretch; }
+  .scol-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; color: #837E75; text-transform: uppercase; margin-bottom: 10px; }
+  .snode { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; margin-bottom: 12px; }
+  .snode b { display: block; font-size: 11.5px; letter-spacing: 0.04em; }
+  .snode .pay { display: block; margin-top: 5px; font-size: 10px; color: #B8B2A6; background: #1C1A18; border: 1px solid #35322E; border-radius: 5px; padding: 4px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sedge { position: relative; }
+  .sedge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .sedge path { fill: none; stroke: #E8B93C; stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0.9; }
+  .sedge .coral { stroke: #E5484D; }
+  .sedge .mint { stroke: #7FBD8A; }
+  .sedge .achip { position: absolute; z-index: 2; font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .soffice { border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 16px 16px; position: relative; }
+  .stag { position: absolute; top: -8px; left: 14px; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: #B8B2A6; text-transform: uppercase; }
+  .sboss { display: flex; gap: 12px; align-items: center; background: #242220; border: 1px solid #4A463F; border-radius: 10px; padding: 11px 16px; width: max-content; margin: 0 auto; position: relative; }
+  .sboss img { width: 38px; height: 38px; border-radius: 9px; image-rendering: pixelated; }
+  .sboss b { font-size: 13px; display: block; }
+  .sboss .duty { font-size: 10.5px; color: #B8B2A6; display: block; }
+  .sboss .live { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #7FBD8A; box-shadow: 0 0 6px #7FBD8A; }
+  .scontract { width: max-content; margin: 10px auto 0; font-size: 10px; color: #B8B2A6; border: 1px dashed #4A463F; border-radius: 7px; padding: 5px 12px; }
+  .scontract b { color: #E8B93C; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .sband { position: relative; height: 34px; }
+  .sband svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sband path { fill: none; stroke: #E8B93C; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  .sband .achip { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5B8FA8; background: #1C1A18; border: 1px solid #3A3733; border-radius: 999px; padding: 1px 7px; }
+  .stip { position: absolute; bottom: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: #E8B93C; transform: translateX(-5px); }
+  .sworkers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .sworker { background: #242220; border: 1px solid #3A3733; border-radius: 10px; padding: 11px 11px 12px; }
+  .sworker .who { display: flex; gap: 9px; align-items: center; }
+  .sworker img { width: 30px; height: 30px; border-radius: 8px; image-rendering: pixelated; }
+  .sworker b { font-size: 12px; display: block; }
+  .sworker .role { font-size: 10px; color: #B8B2A6; }
+  .sworker .stat { font-size: 9.5px; color: #7FBD8A; margin-top: 7px; }
+  .sworker .stat.think { color: #E8B93C; }
+  .sgauge { height: 4px; background: #35322E; border-radius: 2px; margin-top: 5px; overflow: hidden; }
+  .sgauge i { display: block; height: 100%; background: #7FBD8A; }
+  .sworker .ctx { font-size: 9px; color: #837E75; margin-top: 3px; }
+  .schips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .schip { border: 1px solid #3A3733; border-radius: 4px; padding: 1px 6px; font-size: 8.5px; color: #B8B2A6; }
+  .schip.eng { color: #F2ECE4; font-weight: 700; border-color: #4A463F; }
+  .srail { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid #3A3733; border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: 10px; color: #B8B2A6; }
+  .srail .rk { color: #F2ECE4; font-weight: 700; font-size: 10.5px; }
+  .lad { display: inline-flex; gap: 4px; }
+  .lad span { border-radius: 999px; padding: 1px 8px; font-size: 8.5px; font-weight: 700; }
+  .lad .ok { background: rgba(127,189,138,0.16); color: #7FBD8A; }
+  .lad .st { background: rgba(232,185,60,0.16); color: #E8B93C; }
+  .lad .co { background: rgba(230,126,60,0.16); color: #E77E3C; }
+  .lad .sp { background: rgba(229,72,77,0.18); color: #E5484D; }
+  .sfile { border: 1px solid #35322E; border-radius: 4px; padding: 1px 7px; font-size: 9px; color: #B8B2A6; font-family: var(--mono); }
+  .s247 { background: #E8B93C; color: #26222E; font-weight: 700; border-radius: 999px; padding: 4px 20px; width: max-content; margin: 14px auto 0; font-size: 11px; letter-spacing: 0.06em; }
+  .syou { border: 1.5px dashed #3A3733; border-radius: 12px; padding: 22px 14px 14px; position: relative; margin-top: 0; }
+  .sybox { background: #242220; border: 1px solid #3A3733; border-radius: 9px; padding: 10px 12px; font-size: 10.5px; color: #B8B2A6; margin-bottom: 10px; }
+  .sybox b { color: #F2ECE4; display: block; font-size: 11.5px; margin-bottom: 3px; }
+  .sybox .card { margin-top: 6px; background: #1C1A18; border: 1px solid #35322E; border-left: 3px solid #E5484D; border-radius: 5px; padding: 6px 9px; font-size: 10px; }
+  .sybox .card .q { display: inline-block; background: #8b7bd8; color: #fff; border-radius: 3px; font-size: 9px; font-weight: 700; padding: 0 4px; }
+  .sybox .ok { color: #7FBD8A; font-weight: 700; }
+  .sgate { border: 1px solid #4A463F; border-radius: 999px; text-align: center; padding: 6px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #E8B93C; text-transform: uppercase; }
+  @media (max-width: 900px) {
+    .sgrid { grid-template-columns: 1fr; }
+    .sedge { height: 40px; }
+    .schem-legend { margin-left: 0; }
   }
 
   .kit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; text-align: left; }
@@ -253,62 +271,71 @@
 <section class="wrap rv" id="office">
   <div class="eyebrow">the shape of it</div>
   <h2>HOW THE OFFICE RUNS</h2>
-  <p class="sect-sub">Not one chat window. Rudy reads, plans and routes; the floor works in parallel; only the big calls reach you.</p>
-  <div class="diag">
-    <div class="diag-grid">
-      <div>
-        <div class="dkick">
-          <div class="dkick-label">kick it off from anywhere</div>
-          <div class="dchips"><span class="dchip">YOU</span><span class="dchip">SCHEDULES</span><span class="dchip">WEBHOOKS</span></div>
-          <div class="dband">
-            <svg viewBox="0 0 300 36" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M 75 0 C 75 22, 150 14, 150 34"/>
-              <path d="M 150 0 C 150 18, 150 18, 150 34"/>
-              <path d="M 225 0 C 225 22, 150 14, 150 34"/>
-            </svg>
-            <span class="dtip" style="left:50%;"></span>
-          </div>
-        </div>
-        <div class="dlane">
-          <span class="dtag">the office · your mac</span>
-          <div class="dboss"><span class="live"></span><img src="/media/cast/hire-rudy.png" alt="Rudy" width="38" height="38"><span><b>RUDY · the boss</b><span>triages · writes the cards · routes the work</span></span></div>
-          <div class="dband">
-            <svg viewBox="0 0 300 36" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M 150 2 C 150 20, 50 16, 50 34"/>
-              <path d="M 150 2 C 150 18, 150 18, 150 34"/>
-              <path d="M 150 2 C 150 20, 250 16, 250 34"/>
-            </svg>
-            <span class="dtip" style="left:16.66%;"></span>
-            <span class="dtip" style="left:50%;"></span>
-            <span class="dtip" style="left:83.33%;"></span>
-          </div>
-          <div class="dworkers">
-            <div class="dworker"><img src="/media/cast/hire-theo.png" alt="Theo" width="32" height="32"><b>Theo</b><span class="role">frontend</span><span class="dengine">▸ Claude Code</span><span class="dskills"><span class="dskill">design-tokens</span><span class="dskill">contrast-pass</span></span></div>
-            <div class="dworker"><img src="/media/cast/hire-mara.png" alt="Mara" width="32" height="32"><b>Mara</b><span class="role">backend</span><span class="dengine">▸ Codex</span><span class="dskills"><span class="dskill">payments</span><span class="dskill">orders-api</span></span></div>
-            <div class="dworker"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="32" height="32"><b>Ravi</b><span class="role">search</span><span class="dengine">▸ Gemini CLI</span><span class="dskills"><span class="dskill">search-index</span><span class="dskill">typo-tuning</span></span></div>
-          </div>
-          <div class="dnote"><code>git</code> · each hire works in its own isolated worktree, Rudy integrates the branches</div>
-          <div class="dnote"><code>memory</code> · plain markdown every agent keeps, semantic recall included</div>
-          <div class="dnote"><code>board</code> · todo, doing, blocked, done, every card keeps its result</div>
-          <div class="dpill">⟳ 24/7</div>
-        </div>
+  <p class="sect-sub">The real loop, drawn. Work comes in from anywhere, Rudy turns it into contracts, the floor runs under guardrails, and exactly one thing escalates: the call only you can make.</p>
+  <div class="schem">
+    <div class="schem-head">
+      <span class="t">OFFICE SCHEMATIC</span>
+      <div class="schem-legend">
+        <span><i style="background:#5B8FA8"></i>request</span>
+        <span><i style="background:#B8B2A6"></i>inform</span>
+        <span><i style="background:#7FBD8A"></i>done</span>
+        <span><i style="background:#E5484D"></i>escalate</span>
       </div>
-      <div class="dmid">
-        <span class="lbl">asks</span>
-        <div class="darrow"></div>
-        <span class="quote">"verify the sender domain?"</span>
-        <span class="dmidchip">only the big calls</span>
-        <span class="quote">"done, verified"</span>
-        <div class="darrow back"></div>
-        <span class="lbl">you answer</span>
+    </div>
+    <div class="sgrid">
+      <div>
+        <div class="scol-label">work arrives</div>
+        <div class="snode"><b>YOU</b><span class="pay">❯ ship the pricing page</span></div>
+        <div class="snode"><b>SCHEDULE</b><span class="pay">09:00 · morning triage</span></div>
+        <div class="snode"><b>WEBHOOK</b><span class="pay">POST /hook · PR #142</span></div>
+      </div>
+      <div class="sedge">
+        <svg viewBox="0 0 44 330" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M 0 62 C 26 62, 18 96, 44 96"/>
+          <path d="M 0 148 C 26 148, 18 104, 44 100"/>
+          <path d="M 0 232 C 26 232, 16 110, 44 104"/>
+        </svg>
+      </div>
+      <div class="soffice">
+        <span class="stag">the office · your mac</span>
+        <div class="sboss"><span class="live"></span><img src="/media/cast/hire-rudy.png" alt="Rudy" width="38" height="38"><span><b>RUDY · the boss</b><span class="duty">drains the inbox · reads the fleet · sole scribe of the board</span></span></div>
+        <div class="scontract"><b>dispatch = a contract</b> · objective · output · tools · boundaries</div>
+        <div class="sband">
+          <svg viewBox="0 0 300 34" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 150 2 C 150 18, 50 14, 50 32"/>
+            <path d="M 150 2 C 150 16, 150 16, 150 32"/>
+            <path d="M 150 2 C 150 18, 250 14, 250 32"/>
+          </svg>
+          <span class="stip" style="left:16.66%;"></span>
+          <span class="stip" style="left:50%;"></span>
+          <span class="stip" style="left:83.33%;"></span>
+          <span class="achip" style="left:27%;">request</span>
+        </div>
+        <div class="sworkers">
+          <div class="sworker"><span class="who"><img src="/media/cast/hire-theo.png" alt="Theo" width="30" height="30"><span><b>Theo</b><span class="role">frontend</span></span></span><span class="stat">● working · Edit checkout.tsx</span><div class="sgauge"><i style="width:14%"></i></div><span class="ctx">ctx 142k / 1M</span><span class="schips"><span class="schip eng">▸ Claude Code</span><span class="schip">design-tokens</span><span class="schip">contrast-pass</span></span></div>
+          <div class="sworker"><span class="who"><img src="/media/cast/hire-mara.png" alt="Mara" width="30" height="30"><span><b>Mara</b><span class="role">backend</span></span></span><span class="stat">● working · Bash npm test</span><div class="sgauge"><i style="width:31%"></i></div><span class="ctx">ctx 310k / 1M</span><span class="schips"><span class="schip eng">▸ Codex</span><span class="schip">payments</span><span class="schip">orders-api</span></span></div>
+          <div class="sworker"><span class="who"><img src="/media/cast/hire-ravi.png" alt="Ravi" width="30" height="30"><span><b>Ravi</b><span class="role">search</span></span></span><span class="stat think">◐ thinking · typo distance</span><div class="sgauge"><i style="width:8%"></i></div><span class="ctx">ctx 81k / 1M</span><span class="schips"><span class="schip eng">▸ Gemini CLI</span><span class="schip">search-index</span><span class="schip">typo-tuning</span></span></div>
+        </div>
+        <div class="srail"><span class="rk">guardrails</span><span class="lad"><span class="ok">healthy</span><span class="st">steer</span><span class="co">constrain</span><span class="sp">stop</span></span><span>· spend caps are hard limits · destructive moves gate on you</span></div>
+        <div class="srail"><span class="rk">the office is files</span><span class="sfile">board.md</span><span class="sfile">tasks.json</span><span class="sfile">registry.json</span><span class="sfile">log.jsonl</span><span class="sfile">memory.md</span><span>· read it all with cat</span></div>
+        <div class="s247">⟳ 24/7</div>
+      </div>
+      <div class="sedge">
+        <svg viewBox="0 0 44 330" preserveAspectRatio="none" aria-hidden="true">
+          <path class="coral" d="M 0 96 C 22 96, 22 96, 44 96"/>
+          <path class="mint" d="M 44 210 C 22 210, 22 210, 0 210"/>
+        </svg>
+        <span class="achip" style="left:50%; top:96px; transform:translate(-50%,-50%); color:#E5484D;">escalate</span>
+        <span class="achip" style="left:50%; top:210px; transform:translate(-50%,-50%); color:#7FBD8A;">answer</span>
       </div>
       <div>
-        <div class="dlane dyou">
-          <span class="dtag">you · wherever you are</span>
-          <div class="dybox"><b>A toast when work lands</b>Theo finished the dark theme <span class="ok">✓</span></div>
-          <div class="dybox"><b>The NEEDS YOU board <span class="q">?</span></b>every open question in one place, nothing buried in a transcript</div>
-          <div class="dybox"><b>Approve · answer · steer</b>one reply unblocks the card, the floor never waited on the rest</div>
-          <div class="dpill quiet">your click · nothing else</div>
+        <div class="scol-label">&nbsp;</div>
+        <div class="syou">
+          <span class="stag">you · wherever you are</span>
+          <div class="sybox"><b>The NEEDS YOU board</b>one place for every open question<span class="card"><span class="q">?</span> Mara: verify shop.example.com as the sender domain</span></div>
+          <div class="sybox"><b>One reply, and it moves</b>your answer lands in Rudy's inbox, the card unblocks, the floor never stopped for it <span class="ok">✓</span></div>
+          <div class="sybox"><b>A toast when work lands</b>Theo finished the dark theme <span class="ok">✓</span> · his transcript is the receipt</div>
+          <div class="sgate">the only gate in the building is you</div>
         </div>
       </div>
     </div>

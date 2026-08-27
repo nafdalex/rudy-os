@@ -56,7 +56,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
    *
    * That threshold deliberately puts the DEFAULT 420px sidebar in compact
    * mode. It has to: at 420 the labelled row leaves the name about 67px,
-   * which is six pixel-font characters — the "DWIGHT S." truncation this was
+   * which is six pixel-font characters — the "MEREDITH G." truncation this was
    * reported as. Icons at the default width is the fix, not a side effect.
    *
    * Recompute the number if a fifth button lands in this row or a label grows.

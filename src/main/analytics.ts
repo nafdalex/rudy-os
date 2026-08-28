@@ -73,6 +73,7 @@ const EVENTS: Record<string, ReadonlySet<string>> = {
 export type AnalyticsFeature =
   | 'slack_trigger'
   | 'webhook_trigger'
+  | 'imessage_trigger'
   | 'hire_install'
   | 'voice_dictation';
 

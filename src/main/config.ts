@@ -20,6 +20,7 @@ import {
   DEFAULT_WEBHOOK_SCHEMA,
   type ContextTriggerConfig,
   type OrgTriggerConfig,
+  type TriggerMode,
   type WebhookTrigger
 } from '../shared/triggers';
 
@@ -340,6 +341,20 @@ export interface HarnessConfig {
    *  thread) or an agent's own direct in-thread reply — those always stay on. */
   slackProactivePosting?: boolean;
 
+  // ─── iMessage via Photon (text your office) ────────────────────────────────
+  /** Master toggle for the iMessage → Rudy's-queue channel. */
+  photonEnabled?: boolean;
+  /** Photon project id. NOT a secret — the project SECRET is write-only in the
+   *  broker (integrations.ts) under its own ref, never here. */
+  photonProjectId?: string;
+  /** Handles (phone or email) allowed to drive this office. iMessage carries no
+   *  request signature, so this list is the ENTIRE security boundary — an empty
+   *  list means nobody, and the channel refuses to open. */
+  photonAllowlist?: string[];
+  /** Gate applied to inbound texts. Defaults to 'strict': every directive waits
+   *  for a 👍 tapback rather than running on arrival. */
+  photonTriggerMode?: TriggerMode;
+
   // ─── Free Flow (voice dictation → message queue) ───────────────────────────
   /** Master toggle for Free Flow push-to-talk dictation. Default OFF: with it off
    *  the composer shows no mic button, no getUserMedia runs, and no Groq call is
@@ -452,6 +467,10 @@ const DEFAULTS: HarnessConfig = {
   slackChannelId: undefined,
   slackPort: undefined,
   slackProactivePosting: false,
+  photonEnabled: false,
+  photonProjectId: undefined,
+  photonAllowlist: [],
+  photonTriggerMode: DEFAULT_TRIGGER_MODE,
   freeflowEnabled: true,
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',
@@ -512,6 +531,9 @@ function withTriggerDefaults(cfg: HarnessConfig): HarnessConfig {
     orgTrigger: { ...DEFAULT_ORG_TRIGGER, ...cfg.orgTrigger },
     webhookTriggers: Array.isArray(cfg.webhookTriggers)
       ? cfg.webhookTriggers.map((t) => ({ ...t }))
+      : [],
+    photonAllowlist: Array.isArray(cfg.photonAllowlist)
+      ? cfg.photonAllowlist.filter((h): h is string => typeof h === 'string')
       : []
   };
 }

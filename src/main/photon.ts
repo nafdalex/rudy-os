@@ -402,3 +402,131 @@ export class PhotonChannel {
     return [...this.spaces.keys()];
   }
 }
+
+/* ─────────────────────── loopback reply endpoint ─────────────────────────── */
+
+/**
+ * PhotonReplyServer — a 127.0.0.1-only endpoint that lets a spawned agent post
+ * into an iMessage thread WITHOUT ever holding the Photon project secret.
+ *
+ * The agent runs `resources/rudy-photon-reply.cjs`, which reads `{port, token}`
+ * from a 0600 discovery file and POSTs here; this process does the actual send.
+ * Same shape and same reasoning as `SlackReplyServer` in slack.ts — the agent
+ * gets a capability (a per-session token that can only post), never a credential.
+ *
+ * NOT tunnel-forwarded and never bound off-loopback: unlike the webhook server
+ * this has no business being reachable from anywhere but this machine.
+ */
+export interface PhotonReplyServerOptions {
+  /** Secret the helper echoes in `x-md-reply-token`. Per-session, not persisted. */
+  token: string;
+  /** Performs the actual send. Injected so this class holds no credential. */
+  send: (spaceId: string, text: string) => Promise<PhotonSendResult>;
+  /** Told which task a direct reply covered, so the done-notifier stays quiet. */
+  onReplied?: (taskId: string) => void;
+}
+
+/** Reject bodies larger than this before buffering. Mirrors slack.ts/webhook.ts. */
+const REPLY_MAX_BODY_BYTES = 1024 * 1024;
+
+export class PhotonReplyServer {
+  private server: import('node:http').Server | null = null;
+
+  constructor(private readonly opts: PhotonReplyServerOptions) {}
+
+  async start(preferredPort = 0): Promise<{ ok: boolean; port?: number; error?: string }> {
+    if (this.server) return { ok: false, error: 'already running' };
+    const { createServer } = await import('node:http');
+    return new Promise((resolve) => {
+      const server = createServer((req, res) => { void this.handle(req, res); });
+      const onError = (e: Error): void => {
+        server.removeAllListeners('listening');
+        this.server = null;
+        resolve({ ok: false, error: e.message });
+      };
+      server.once('error', onError);
+      server.once('listening', () => {
+        server.removeListener('error', onError);
+        const addr = server.address();
+        const port = typeof addr === 'object' && addr ? addr.port : undefined;
+        this.server = server;
+        resolve(port ? { ok: true, port } : { ok: false, error: 'no port assigned' });
+      });
+      // '127.0.0.1' ONLY — nothing about this endpoint is safe to expose.
+      server.listen(preferredPort, '127.0.0.1');
+    });
+  }
+
+  stop(): void {
+    try { this.server?.close(); } catch { /* already closing */ }
+    this.server = null;
+  }
+
+  private async handle(
+    req: import('node:http').IncomingMessage,
+    res: import('node:http').ServerResponse
+  ): Promise<void> {
+    // Defence in depth: the bind already excludes non-loopback peers.
+    if (!isLoopback(req.socket.remoteAddress ?? '')) { res.writeHead(403); res.end(); return; }
+    if (req.method !== 'POST' || (req.url ?? '').split('?')[0] !== '/reply') {
+      res.writeHead(404); res.end(); return;
+    }
+    if (!this.checkToken(req.headers['x-md-reply-token'])) { res.writeHead(401); res.end(); return; }
+
+    let body = '';
+    let aborted = false;
+    for await (const chunk of req) {
+      if (aborted) return;
+      body += chunk;
+      if (body.length > REPLY_MAX_BODY_BYTES) {
+        aborted = true;
+        res.writeHead(413); res.end();
+        req.destroy();
+        return;
+      }
+    }
+
+    let parsed: { spaceId?: unknown; text?: unknown; taskId?: unknown };
+    try { parsed = JSON.parse(body); }
+    catch { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'bad json' })); return; }
+    if (typeof parsed.spaceId !== 'string' || typeof parsed.text !== 'string'
+      || !parsed.spaceId.trim() || !parsed.text.trim()) {
+      res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'spaceId and text required' }));
+      return;
+    }
+
+    const { text } = formatForIMessage(parsed.text);
+    const r = await this.opts.send(parsed.spaceId, text);
+    // Only a DELIVERED reply suppresses the summary — a failed one must still
+    // leave the done-notifier free to try.
+    if (r.ok && typeof parsed.taskId === 'string' && parsed.taskId) {
+      try { this.opts.onReplied?.(parsed.taskId); } catch { /* never break the reply */ }
+    }
+    res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(r));
+  }
+
+  private checkToken(provided: string | string[] | undefined): boolean {
+    if (typeof provided !== 'string') return false;
+    const a = Buffer.from(provided);
+    const b = Buffer.from(this.opts.token);
+    // Length must match before timingSafeEqual (it throws otherwise); this leaks
+    // only the length, which is fixed and public anyway.
+    if (a.length !== b.length) return false;
+    return timingSafeEqualSync(a, b);
+  }
+}
+
+/** Local copies so this module keeps its zero-electron, low-import posture.
+ *  `integrationBroker.ts` already sets the precedent of copying `isLoopback`
+ *  rather than exporting it from slack.ts. */
+function isLoopback(addr: string): boolean {
+  const a = addr.startsWith('::ffff:') ? addr.slice(7) : addr;
+  return a === '::1' || a === '127.0.0.1' || a.startsWith('127.');
+}
+
+function timingSafeEqualSync(a: Buffer, b: Buffer): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { timingSafeEqual } = require('node:crypto') as typeof import('node:crypto');
+  return timingSafeEqual(a, b);
+}

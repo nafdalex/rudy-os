@@ -42,6 +42,10 @@ files:
 extraResources:
   - from: resources/rudy-slack-reply.cjs
     to: rudy-slack-reply.cjs
+  # The iMessage twin of the Slack helper: an agent posts its result back into
+  # the thread a text came from, without ever seeing the Photon project secret.
+  - from: resources/rudy-photon-reply.cjs
+    to: rudy-photon-reply.cjs
   # Knowledge Graph agent CLI + its pure-JS core. Agents invoke `node
   # <resources>/kg.cjs` out-of-process; kg-core.cjs ships beside it so the CLI's
   # `require('./kg-core.cjs')` resolves outside the asar.

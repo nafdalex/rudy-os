@@ -224,9 +224,14 @@ export const CLONE_NODE_BLURB =
  * conversation as a conversation: what they sent us, and what we said back.
  * `correlationId` ties our outbound reply to the inbound that prompted it.
  */
+/** Which inbound channel an event came from. Widen this (and `isEntry` in
+ *  `src/main/triggerHistory.ts`) to add a channel — every downstream consumer,
+ *  including the approve/reject release path, is keyed off it. */
+export type TriggerSource = 'webhook' | 'org' | 'imessage';
+
 export interface TriggerHistoryEntry {
   id: string;
-  source: 'webhook' | 'org';
+  source: TriggerSource;
   /** Which webhook (or which peer) — `WebhookTrigger.id` for webhooks. */
   sourceId: string;
   /** Display name at the time of the event, so history survives a rename/delete. */

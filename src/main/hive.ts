@@ -121,6 +121,10 @@ export interface HiveTask {
    *  done-summary reply is posted back into. Consumed OUTBOUND only; populating
    *  it is the inbound/kanban side's job and does not affect routing. */
   slack?: { channel: string; thread_ts: string };
+  /** Set when this task originated from an iMessage (Photon) text — the space and
+   *  the originating message the done-summary reply is posted back into. Consumed
+   *  OUTBOUND only, exactly like `slack` above; populating it does not affect routing. */
+  photon?: { spaceId: string; messageId: string };
   /** Set when this task originated from a generic webhook POST. Stores the SHA-256
    *  of the capability token (never the raw token — that's returned to the caller
    *  once and never persisted), so a GET status lookup can match by hashing the

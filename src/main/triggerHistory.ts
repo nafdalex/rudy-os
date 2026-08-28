@@ -25,7 +25,8 @@ import { randomBytes } from 'node:crypto';
 import {
   TRIGGER_HISTORY_LIMIT,
   type InboundKind,
-  type TriggerHistoryEntry
+  type TriggerHistoryEntry,
+  type TriggerSource
 } from '../shared/triggers';
 
 /** What a caller must supply; `id` and `at` are stamped for them unless the
@@ -74,7 +75,7 @@ function isEntry(v: unknown): v is TriggerHistoryEntry {
   if (!v || typeof v !== 'object') return false;
   const e = v as Partial<TriggerHistoryEntry>;
   return typeof e.id === 'string'
-    && (e.source === 'webhook' || e.source === 'org')
+    && (e.source === 'webhook' || e.source === 'org' || e.source === 'imessage')
     && (e.direction === 'inbound' || e.direction === 'outbound')
     && typeof e.body === 'string'
     && typeof e.at === 'number';
@@ -144,7 +145,7 @@ export function updateTriggerHistory(
 /** Wipe the ledger, or just one source's half of it (clearing webhook noise
  *  should not throw away the org conversation, and vice versa). Removing the file
  *  outright on a full clear keeps a stale-but-unreadable file from lingering. */
-export function clearTriggerHistory(source?: 'webhook' | 'org'): void {
+export function clearTriggerHistory(source?: TriggerSource): void {
   if (!source) {
     try { rmSync(historyPath(), { force: true }); } catch { /* best-effort */ }
     return;

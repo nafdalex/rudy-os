@@ -1222,7 +1222,7 @@ const api = {
   decideTriggerHistory: (arg: { id: string; decision: 'approved' | 'rejected' }): Promise<TriggerHistoryEntry | null> =>
     ipcRenderer.invoke('triggerHistory:decide', arg),
   /** Wipe the ledger, or just one source's half of it. */
-  clearTriggerHistory: (source?: 'webhook' | 'org'): Promise<void> =>
+  clearTriggerHistory: (source?: 'webhook' | 'org' | 'imessage'): Promise<void> =>
     ipcRenderer.invoke('triggerHistory:clear', source),
   /** Fires whenever the ledger changes (an inbound arrived, a verdict landed, a
    *  reply was paired), so the history tab live-refreshes. */

@@ -37,7 +37,7 @@ interface TriggerHistoryApi {
     id: string;
     decision: 'approved' | 'rejected';
   }) => Promise<{ ok?: boolean; error?: string } | undefined>;
-  clearTriggerHistory?: (source?: 'webhook' | 'org') => Promise<unknown>;
+  clearTriggerHistory?: (source?: 'webhook' | 'org' | 'imessage') => Promise<unknown>;
 }
 
 /** Read lazily: `window.cth` is installed by preload, not by module load order. */
@@ -47,7 +47,9 @@ function api(): TriggerHistoryApi {
 
 /* ─────────────────────────────── exchanges ───────────────────────────────── */
 
-type Source = 'webhook' | 'org';
+/** Mirrors `TriggerSource` in src/shared/triggers.ts — one tab section per
+ *  inbound channel. */
+type Source = 'webhook' | 'org' | 'imessage';
 
 interface Exchange {
   key: string;
@@ -355,6 +357,11 @@ const SECTIONS: { key: Source; label: string; blurb: string }[] = [
     key: 'org',
     label: 'Organization',
     blurb: 'Messages from your teammates’ Rudys, next to what Rudy sent back.'
+  },
+  {
+    key: 'imessage',
+    label: 'iMessage',
+    blurb: 'Texts sent to your Photon line. A held one is waiting on your 👍 in the thread — approving here does exactly the same thing.'
   }
 ];
 
@@ -417,7 +424,8 @@ export function TriggerHistoryTab() {
   const counts = useMemo(() => {
     const c: Record<Source, { total: number; pending: number }> = {
       webhook: { total: 0, pending: 0 },
-      org: { total: 0, pending: 0 }
+      org: { total: 0, pending: 0 },
+      imessage: { total: 0, pending: 0 }
     };
     for (const e of entries) {
       const bucket = c[e.source];

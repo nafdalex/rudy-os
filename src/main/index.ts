@@ -45,7 +45,7 @@ import {
   classifyInboundKind, isAutoAllowed,
   DEFAULT_CONTEXT_TRIGGER, DEFAULT_ORG_TRIGGER, DEFAULT_TRIGGER_MODE, DEFAULT_WEBHOOK_SCHEMA,
   type ContextRule, type ContextTriggerConfig, type InboundKind, type OrgTriggerConfig,
-  type TriggerHistoryEntry, type TriggerMode, type WebhookTrigger
+  type TriggerHistoryEntry, type TriggerMode, type TriggerSource, type WebhookTrigger
 } from '../shared/triggers';
 import {
   appendTriggerHistory, clearTriggerHistory, listTriggerHistory, updateTriggerHistory
@@ -1777,6 +1777,55 @@ function heldTokenHashFor(entryId: string): string | undefined {
   return undefined;
 }
 
+/** history entry id → where its iMessage came from, plus the id of the prompt we
+ *  sent asking for a tapback.
+ *
+ *  The exact analogue of `heldTokens` above, for the same reason: a held message
+ *  has no card yet, so the reply address has to live somewhere until approval
+ *  creates one. It is deliberately NOT in the ledger — addressing is transport
+ *  state, not history — and it is mirrored into the durable kv store so a restart
+ *  doesn't strand a 👍 the user has not tapped yet.
+ *
+ *  `promptId` is what an inbound tapback carries, so it is the reverse-lookup key. */
+interface PhotonPendingTarget { spaceId: string; messageId: string; promptId: string }
+let photonPending: Map<string, PhotonPendingTarget> | null = null;
+const PHOTON_PENDING_KV_KEY = 'triggers.photon.pendingTargets';
+
+function photonPendingTargets(): Map<string, PhotonPendingTarget> {
+  if (photonPending) return photonPending;
+  let stored: Record<string, PhotonPendingTarget> | undefined;
+  try { stored = persist.getKv<Record<string, PhotonPendingTarget>>(PHOTON_PENDING_KV_KEY); }
+  catch { stored = undefined; }
+  const entries = stored && typeof stored === 'object' ? Object.entries(stored) : [];
+  photonPending = new Map(entries.filter((e): e is [string, PhotonPendingTarget] =>
+    !!e[1] && typeof e[1].spaceId === 'string' && typeof e[1].messageId === 'string' && typeof e[1].promptId === 'string'));
+  return photonPending;
+}
+
+function persistPhotonPendingTargets(): void {
+  try { persist.setKv(PHOTON_PENDING_KV_KEY, Object.fromEntries(photonPendingTargets())); }
+  catch (e) { console.error('[photon] could not persist pending-target map:', e); }
+}
+
+/** Which held entry a tapback on `promptId` decides, if any is still waiting. */
+function photonEntryForPrompt(promptId: string): string | undefined {
+  for (const [entryId, t] of photonPendingTargets()) if (t.promptId === promptId) return entryId;
+  return undefined;
+}
+
+/** Drop targets whose history entry has aged out of the capped ledger. Mirrors
+ *  `pruneHeldTokens`; without it a long-lived install leaks one row per text. */
+function prunePhotonPendingTargets(): void {
+  const map = photonPendingTargets();
+  if (map.size === 0) return;
+  const live = new Set(listTriggerHistory().map((e) => e.id));
+  let changed = false;
+  for (const entryId of [...map.keys()]) {
+    if (!live.has(entryId)) { map.delete(entryId); changed = true; }
+  }
+  if (changed) persistPhotonPendingTargets();
+}
+
 /** Tell the Triggers tab its ledger moved, so history live-refreshes instead of
  *  waiting for the operator to re-open the tab. */
 function notifyTriggerHistoryUpdated(): void {
@@ -1801,8 +1850,10 @@ function dispatchWebhookWork(arg: {
   message: string;
   /** Stamped onto the card so a GET can match the caller's token. */
   tokenHash?: string;
-  /** 'webhook' | 'org' — only for the subject line and the boss-facing note. */
-  origin: 'webhook' | 'org';
+  /** Stamped onto the card so the iMessage done-notifier knows where to reply. */
+  photon?: { spaceId: string; messageId: string };
+  /** Only for the subject line and the boss-facing note. */
+  origin: TriggerSource;
 }): boolean {
   try {
     const card: HiveTask = {
@@ -1813,7 +1864,8 @@ function dispatchWebhookWork(arg: {
       dependsOn: [],
       priority: 1,
       createdAt: new Date().toISOString(),
-      ...(arg.tokenHash ? { webhook: { tokenHash: arg.tokenHash } } : {})
+      ...(arg.tokenHash ? { webhook: { tokenHash: arg.tokenHash } } : {}),
+      ...(arg.photon ? { photon: arg.photon } : {})
     };
     // addTask appends against the latest on-disk ledger and is idempotent by task
     // id, so a concurrent card writer (Slack, boss, voice, another webhook) can't
@@ -1832,9 +1884,9 @@ function dispatchWebhookWork(arg: {
       to: 'boss',
       act: 'request',
       subject: `[${arg.origin}] ${arg.title}`,
-      body: `${arg.message}\n\n(Inbound via the generic ${arg.origin} API, tracked as kanban card ${arg.taskId}. When this work is finished, set that card's status to 'done' and fill its 'result' so the caller's status check reflects the outcome.)`,
+      body: `${arg.message}\n\n(Inbound via ${arg.origin === 'imessage' ? 'iMessage' : `the generic ${arg.origin} API`}, tracked as kanban card ${arg.taskId}. When this work is finished, set that card's status to 'done' and fill its 'result' so the caller's status check reflects the outcome.)`,
       requires_reply: false
-    }, 'webhook');
+    }, arg.origin === 'imessage' ? 'imessage' : 'webhook');
   } catch (e) {
     console.error('[webhook] could not route to boss:', e instanceof Error ? e.message : e);
   }
@@ -4308,7 +4360,7 @@ ipcMain.handle('org:setTrigger', (_evt, arg: unknown) => {
 // ─── IPC: Triggers — history ledger + the approval gate ─────────────────────
 ipcMain.handle('triggerHistory:list', () => listTriggerHistory());
 ipcMain.handle('triggerHistory:clear', (_evt, arg: unknown) => {
-  const source = arg === 'webhook' || arg === 'org' ? arg : undefined;
+  const source = arg === 'webhook' || arg === 'org' || arg === 'imessage' ? arg : undefined;
   clearTriggerHistory(source);
   pruneHeldTokens();
   notifyTriggerHistoryUpdated();
@@ -4325,25 +4377,30 @@ ipcMain.handle('triggerHistory:clear', (_evt, arg: unknown) => {
  * decided, so a double-click (or two windows deciding at once) cannot dispatch
  * the same message twice.
  */
-ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
-  const p = (arg ?? {}) as { id?: unknown; decision?: unknown };
-  const id = typeof p.id === 'string' ? p.id : '';
-  const decision = p.decision === 'approved' ? 'approved' : p.decision === 'rejected' ? 'rejected' : null;
-  if (!id || !decision) return null;
+function decideTriggerEntry(
+  id: string,
+  decision: 'approved' | 'rejected'
+): TriggerHistoryEntry | null {
   const entry: TriggerHistoryEntry | undefined = listTriggerHistory().find((e) => e.id === id);
   if (!entry) return null;
   if (entry.decision !== 'pending') return entry; // already decided → no-op, not a re-dispatch
 
   if (decision === 'rejected') {
     const next = updateTriggerHistory(id, { decision: 'rejected' });
+    photonPendingTargets().delete(id);
+    persistPhotonPendingTargets();
     notifyTriggerHistoryUpdated();
     return next;
   }
 
-  const taskId = `webhook-${randomBytes(8).toString('hex')}`;
+  const taskId = `${entry.source === 'imessage' ? 'imsg' : 'webhook'}-${randomBytes(8).toString('hex')}`;
   const tokenHash = heldTokenHashFor(id);
+  // Side-carried exactly like `tokenHash` above: the reply target never enters the
+  // ledger (it is transport addressing, not history), so it is looked up here and
+  // stamped onto the card the same way.
+  const photon = photonPendingTargets().get(id);
   const title = entry.title ?? (entry.body.length > 80 ? `${entry.body.slice(0, 79)}…` : entry.body);
-  if (!dispatchWebhookWork({ taskId, title, message: entry.body, tokenHash, origin: entry.source })) {
+  if (!dispatchWebhookWork({ taskId, title, message: entry.body, tokenHash, photon, origin: entry.source })) {
     // The card is what the caller polls and what boss works from. Leave the entry
     // pending so the operator can approve again once the hive is writable.
     return entry;
@@ -4351,10 +4408,19 @@ ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
   // The hash now lives on the card, so the caller's GET resolves through the
   // normal task lookup from here on.
   if (tokenHash) { heldTokens().delete(tokenHash); persistHeldTokens(); }
+  if (photon) { photonPendingTargets().delete(id); persistPhotonPendingTargets(); }
   const next = updateTriggerHistory(id, { decision: 'approved', taskId });
   pruneHeldTokens();
   notifyTriggerHistoryUpdated();
   return next;
+}
+
+ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
+  const p = (arg ?? {}) as { id?: unknown; decision?: unknown };
+  const id = typeof p.id === 'string' ? p.id : '';
+  const decision = p.decision === 'approved' ? 'approved' : p.decision === 'rejected' ? 'rejected' : null;
+  if (!id || !decision) return null;
+  return decideTriggerEntry(id, decision);
 });
 
 // ─── IPC: Generic webhook (LEGACY single-endpoint channels) ─────────────────

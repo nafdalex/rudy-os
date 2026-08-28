@@ -296,6 +296,12 @@ export interface HarnessConfig {
   slackChannelId?: string;
   slackPort?: number;
   slackProactivePosting?: boolean;
+  /** iMessage via Photon. The project SECRET is deliberately absent — it is
+   *  write-only in the broker and never crosses this boundary. */
+  photonEnabled?: boolean;
+  photonProjectId?: string;
+  photonAllowlist?: string[];
+  photonTriggerMode?: 'strict' | 'allow-all' | 'communication-only';
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
@@ -1147,6 +1153,29 @@ const api = {
     proactivePosting?: boolean;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:setConfig', patch),
+
+  // ─── iMessage via Photon (text → Rudy's queue) ────────────────────────────
+  /** Open the iMessage channel. Nothing to paste anywhere afterwards: the
+   *  connection dials OUT, so there is no URL and no tunnel. */
+  photonStart: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('photon:start'),
+  photonStop: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('photon:stop'),
+  /** Live state + whether a project secret is stored (never the secret itself). */
+  photonStatus: (): Promise<{ running: boolean; hasSecret: boolean }> =>
+    ipcRenderer.invoke('photon:status'),
+  /** WRITE-ONLY. The secret is encrypted in main and can never be read back;
+   *  to change it the user pastes a new one. */
+  photonSetSecret: (secret: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('photon:setSecret', { secret }),
+  photonClearSecret: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('photon:clearSecret'),
+  /** Persist settings (and close the line if disabled / allowlist emptied). */
+  photonSetConfig: (patch: {
+    projectId?: string; allowlist?: string[]; enabled?: boolean;
+    mode?: 'strict' | 'allow-all' | 'communication-only';
+  }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('photon:setConfig', patch),
 
   // ─── Generic webhook + status API (POST → work, GET → status) ────────────────
   /** Start the generic webhook server; returns the public endpoint URL callers

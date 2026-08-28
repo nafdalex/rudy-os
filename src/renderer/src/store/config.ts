@@ -101,6 +101,12 @@ export interface HarnessConfig {
   /** Opt-in app/voice-initiated proactive Slack posting (default OFF). Mirrors
    *  src/main/config.ts; the Slack-origin done-reply round-trip is never gated. */
   slackProactivePosting?: boolean;
+  /** iMessage via Photon. The project SECRET is deliberately absent: it is
+   *  write-only in main's broker and never crosses into the renderer. */
+  photonEnabled?: boolean;
+  photonProjectId?: string;
+  photonAllowlist?: string[];
+  photonTriggerMode?: 'strict' | 'allow-all' | 'communication-only';
   /** Free Flow voice dictation (mirrors src/main/config.ts). */
   freeflowEnabled?: boolean;
   groqApiKey?: string;

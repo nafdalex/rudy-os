@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+- **iMessage.** Text your office from your phone. Bring your own
+  [Photon](https://photon.codes) project, paste the two credentials into Settings → Connections,
+  and list who is allowed to text you. A text becomes a card the same way a webhook does; you
+  approve it with a 👍 tapback in the thread (👎 drops it), and the result comes back as a reply.
+  No tunnel, no public URL, and nothing to re-paste after a restart — the connection dials out.
+  The sender allowlist is the whole security boundary, so the channel refuses to open without
+  one, and anyone not on it is ignored without a reply.
+
 ## [0.5.0] · 2026-08-26
 
 **The shipping build.** Version jumps past the pre-rename tags (0.3.3 to 0.4.5 belong to the

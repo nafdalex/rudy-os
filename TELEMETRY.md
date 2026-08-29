@@ -26,7 +26,7 @@ The events:
 | `app_launched` | — | Each app start |
 | `update_applied` | `from_version`, `to_version` — version strings, or `unknown` for an install older than this event; `via` — one of `auto` (the app's own updater installed it), `manual`, `unknown` | Once, on the first start after the app's version changes |
 | `agent_spawned` | `provider` (CLI engine name, e.g. `claude`, `codex`) | An agent terminal is spawned |
-| `feature_used` | `feature` — one of `slack_trigger`, `webhook_trigger`, `hire_install`, `voice_dictation` | At most once per feature per app session |
+| `feature_used` | `feature` — one of `slack_trigger`, `webhook_trigger`, `imessage_trigger`, `hire_install`, `voice_dictation` | At most once per feature per app session |
 | `onboarding_completed` | `role`: one of `developer`, `founder`, `product`, `marketing`, `ops`, `curious` (what the user picked on the first screen); `audience`: `technical` or `non-technical`; `provider`: the orchestrator's CLI engine name (e.g. `claude`, `codex`) | Once, when the first-run wizard finishes |
 | `session_ended` | `duration_bucket` — one of `<5m`, `5-30m`, `30m-2h`, `2-8h`, `8h+` | On quit (coarse bucket, never raw duration) |
 

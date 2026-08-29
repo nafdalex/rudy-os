@@ -163,6 +163,30 @@ const SLACK_CONNECT_STEPS = `Connect Rudy OS to Slack
  *  shares one server and one tunnel and is told apart by its id in the path, so
  *  `<tunnel>` is the public base URL and `<webhookId>` picks the endpoint. The
  *  secret/token go in headers so they stay out of URLs and access logs. */
+/** Photon connect walkthrough. Deliberately short: unlike Slack there is no
+ *  app to create, no scopes to tick and no Request URL to paste back, because
+ *  the connection dials out from this machine. */
+const PHOTON_CONNECT_STEPS = `Connect Rudy OS to iMessage
+
+1. photon.codes -> sign in -> create a project.
+2. Copy the Project ID and Project Secret from the
+   project's dashboard and paste them here.
+3. Add the phone number or email of everyone allowed to
+   text this office. iMessage carries no signature Rudy
+   can verify, so this list is the only thing standing
+   between a stranger's text and your agents. Anyone not
+   on it is ignored silently.
+4. Press connect. There is no URL to paste back and
+   nothing to re-do after a restart.
+
+Texting it:
+- Send a normal message. Rudy replies "Queued: ..." and
+  waits for your tapback: thumbs-up runs it, thumbs-down
+  drops it.
+- Approving in Settings -> Triggers does exactly the same
+  thing, if you would rather use the screen.
+- A thumbs-up on YOUR message is Rudy saying "got it".`;
+
 const WEBHOOK_API_DOC = `Webhook API
 
 Every webhook has its own URL, its own secret and its own mode. They share one
@@ -364,6 +388,19 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   // Whether the connect-steps help panel is expanded.
   const [showSlackHelp, setShowSlackHelp] = useState(false);
 
+  // --- iMessage via Photon ---
+  const [photonEnabled, setPhotonEnabled] = useState(config.photonEnabled ?? false);
+  const [photonProjectId, setPhotonProjectId] = useState(config.photonProjectId ?? '');
+  // Write-only: never hydrated from main, only ever sent. Blank means "keep the
+  // saved one", matching how the integrations registry treats a stored key.
+  const [photonSecret, setPhotonSecret] = useState('');
+  const [photonHasSecret, setPhotonHasSecret] = useState(false);
+  const [photonAllowlist, setPhotonAllowlist] = useState((config.photonAllowlist ?? []).join(', '));
+  const [photonRunning, setPhotonRunning] = useState(false);
+  const [photonBusy, setPhotonBusy] = useState(false);
+  const [photonNote, setPhotonNote] = useState('');
+  const [showPhotonHelp, setShowPhotonHelp] = useState(false);
+
   // --- Webhook triggers (a LIST; src/shared/triggers.ts owns the type) ---------
   // The list itself lives in the store, not in local state: the Triggers tab
   // edits the same webhooks, and one of the two surfaces holding a private copy
@@ -477,6 +514,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       setSlackChannel(cc.slackChannelId ?? '');
       setSlackPort(String(cc.slackPort ?? 3847));
       setSlackProactivePosting(cc.slackProactivePosting ?? false);
+      setPhotonEnabled(cc.photonEnabled ?? false);
+      setPhotonProjectId(cc.photonProjectId ?? '');
+      setPhotonAllowlist((cc.photonAllowlist ?? []).join(', '));
       const kgOn = (cc as { knowledgeGraph?: { enabled?: boolean } }).knowledgeGraph?.enabled === true;
       setKgEnabled(kgOn);
     }).catch(() => { /* keep prop-seeded values */ });
@@ -484,6 +524,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       .catch(() => { /* status unavailable */ });
     // Hydrate live connection state + the persisted Request URL: the
     // tunnel URL lives in main, so reopening Settings while connected re-shows it.
+    window.cth.photonStatus().then((st) => {
+      if (!alive) return;
+      setPhotonRunning(st.running);
+      setPhotonHasSecret(st.hasSecret);
+    }).catch(() => { /* status unavailable - assume not running */ });
     window.cth.slackStatus().then((s) => {
       if (!alive) return;
       setRunning(s.running);
@@ -558,6 +603,58 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     try { await window.cth.slackStop(); setRunning(false); setSlackNote('stopped'); }
     catch (e) { setSlackNote(e instanceof Error ? e.message : String(e)); }
     finally { setSlackBusy(false); }
+  };
+
+  /** Handles are comma/newline separated in the box; main re-trims anyway. */
+  const photonHandles = (): string[] =>
+    photonAllowlist.split(/[,\n]/).map((h) => h.trim()).filter(Boolean);
+
+  const savePhotonSecretIfProvided = async (): Promise<string | null> => {
+    if (!photonSecret.trim()) return null;                // blank = keep existing
+    const r = await window.cth.photonSetSecret(photonSecret.trim());
+    if (!r.ok) return r.error ?? 'could not store the secret';
+    setPhotonSecret('');                                   // never keep it in renderer state
+    setPhotonHasSecret(true);
+    return null;
+  };
+
+  const savePhoton = async () => {
+    setPhotonBusy(true); setPhotonNote('');
+    try {
+      const err = await savePhotonSecretIfProvided();
+      if (err) { setPhotonNote(err); return; }
+      await window.cth.photonSetConfig({
+        projectId: photonProjectId, allowlist: photonHandles(), enabled: photonEnabled
+      });
+      setPhotonNote('saved');
+    } catch (e) {
+      setPhotonNote(e instanceof Error ? e.message : String(e));
+    } finally { setPhotonBusy(false); }
+  };
+
+  const startPhoton = async () => {
+    setPhotonBusy(true); setPhotonNote('');
+    try {
+      const err = await savePhotonSecretIfProvided();
+      if (err) { setPhotonNote(err); return; }
+      // Persist first so the channel opens with the latest id/allowlist.
+      await window.cth.photonSetConfig({
+        projectId: photonProjectId, allowlist: photonHandles(), enabled: true
+      });
+      setPhotonEnabled(true);
+      const res = await window.cth.photonStart();
+      if (res.ok) { setPhotonRunning(true); setPhotonNote('connected'); }
+      else { setPhotonNote(res.error ?? 'failed to connect'); }
+    } catch (e) {
+      setPhotonNote(e instanceof Error ? e.message : String(e));
+    } finally { setPhotonBusy(false); }
+  };
+
+  const stopPhoton = async () => {
+    setPhotonBusy(true); setPhotonNote('');
+    try { await window.cth.photonStop(); setPhotonRunning(false); setPhotonNote('disconnected'); }
+    catch (e) { setPhotonNote(e instanceof Error ? e.message : String(e)); }
+    finally { setPhotonBusy(false); }
   };
 
   // --- Webhook trigger handlers ---
@@ -1458,6 +1555,128 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </div>
                         )}
                       </ConnCard>
+
+                      {/* iMessage via Photon */}
+                      <ConnCard
+                        title="IMESSAGE"
+                        blurb="Text your office from your phone. Bring your own Photon project — Rudy connects with your credentials, so there is no middleman and nothing metering you."
+                        status={<StatusDot on={photonRunning} onText="connected" offText={photonEnabled ? 'connecting…' : 'off'} />}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                              iMessage integration
+                              <button
+                                type="button"
+                                aria-label="Show iMessage connect steps"
+                                aria-expanded={showPhotonHelp}
+                                onClick={() => setShowPhotonHelp((v) => !v)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  width: 16, height: 16, padding: 0, cursor: 'pointer',
+                                  border: 'none', borderRadius: '50%',
+                                  background: showPhotonHelp ? 'var(--cth-ink-700)' : 'var(--cth-ink-300)',
+                                  color: showPhotonHelp ? 'var(--cth-paper-100)' : 'var(--cth-ink-900)',
+                                  fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '16px'
+                                }}
+                              >i</button>
+                            </span>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              Text Rudy; approve with a tapback. No tunnel, no URL to paste.
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              fontSize: 12, lineHeight: '16px',
+                              color: photonRunning ? 'var(--cth-mint-700, #1f7a4d)' : 'var(--cth-ink-500)'
+                            }}>
+                              {photonRunning ? '● Connected' : '○ Not connected'}
+                            </span>
+                            <PixelToggle on={photonEnabled} onClick={() => setPhotonEnabled((v) => !v)} />
+                          </div>
+                        </div>
+
+                        {showPhotonHelp && (
+                          <pre style={{
+                            margin: 0, padding: 10, whiteSpace: 'pre-wrap',
+                            background: 'var(--cth-paper-100)',
+                            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                            fontFamily: 'var(--cth-font-mono)', fontSize: 11, lineHeight: '16px',
+                            color: 'var(--cth-ink-700)'
+                          }}>{PHOTON_CONNECT_STEPS}</pre>
+                        )}
+
+                        {photonEnabled && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div style={{ display: 'flex', gap: 16 }}>
+                              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                                <span style={slackLabelStyle}>Project ID</span>
+                                <input
+                                  value={photonProjectId}
+                                  onChange={(e) => setPhotonProjectId(e.target.value)}
+                                  placeholder="photon.codes -> your project"
+                                  style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                                />
+                              </label>
+                              {/* Write-only. Encrypted in main and never read back,
+                                  so a blank box means "keep the saved one". */}
+                              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                                <span style={slackLabelStyle}>
+                                  Project secret{photonHasSecret ? ' (saved)' : ''}
+                                </span>
+                                <input
+                                  type="password"
+                                  value={photonSecret}
+                                  onChange={(e) => setPhotonSecret(e.target.value)}
+                                  placeholder={photonHasSecret ? 'leave blank to keep the saved one' : 'project secret'}
+                                  style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                                />
+                              </label>
+                            </div>
+
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <span style={slackLabelStyle}>Allowed senders, comma separated</span>
+                              <input
+                                value={photonAllowlist}
+                                onChange={(e) => setPhotonAllowlist(e.target.value)}
+                                placeholder="+15551234567, you@icloud.com"
+                                style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                              />
+                            </label>
+
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              {/* Connect stays disabled without an allowlist: an
+                                  ungated iMessage line is an open shell, and main
+                                  refuses to open one anyway. */}
+                              <PixelButton
+                                variant="primary"
+                                size="sm"
+                                onClick={startPhoton}
+                                disabled={photonBusy || !photonProjectId.trim() || photonHandles().length === 0
+                                  || (!photonHasSecret && !photonSecret.trim()) || photonRunning}
+                              >
+                                {photonBusy ? '...' : photonRunning ? 'connected' : 'connect'}
+                              </PixelButton>
+                              <PixelButton variant="secondary" size="sm" onClick={stopPhoton} disabled={photonBusy || !photonRunning}>
+                                disconnect
+                              </PixelButton>
+                              <PixelButton variant="ghost" size="sm" onClick={savePhoton} disabled={photonBusy}>
+                                save
+                              </PixelButton>
+                              {photonNote && (
+                                <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{photonNote}</span>
+                              )}
+                            </div>
+
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              Every text waits for your 👍 before anything runs. Only the numbers and
+                              emails listed above can reach this office; anyone else is ignored without
+                              a reply. Your project secret is encrypted on this Mac and never shown again.
+                            </span>
+                          </div>
+                        )}
+                      </ConnCard>
+
 
                       {/* Webhook triggers — a LIST of endpoints, one per caller.
                           Everything renders off the store mirror, so a change made

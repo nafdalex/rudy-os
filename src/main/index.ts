@@ -38,6 +38,10 @@ import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessio
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
+  PhotonChannel, PhotonReplyServer, formatForIMessage,
+  type PhotonInbound, type PhotonReaction, type PhotonSendResult
+} from './photon';
+import {
   WebhookServer,
   type WebhookDispatch, type WebhookEndpointRef, type WebhookInbound, type WebhookTaskStatus
 } from './webhook';
@@ -45,7 +49,7 @@ import {
   classifyInboundKind, isAutoAllowed,
   DEFAULT_CONTEXT_TRIGGER, DEFAULT_ORG_TRIGGER, DEFAULT_TRIGGER_MODE, DEFAULT_WEBHOOK_SCHEMA,
   type ContextRule, type ContextTriggerConfig, type InboundKind, type OrgTriggerConfig,
-  type TriggerHistoryEntry, type TriggerMode, type WebhookTrigger
+  type TriggerHistoryEntry, type TriggerMode, type TriggerSource, type WebhookTrigger
 } from '../shared/triggers';
 import {
   appendTriggerHistory, clearTriggerHistory, listTriggerHistory, updateTriggerHistory
@@ -1703,6 +1707,542 @@ function stopSlackServer(): void {
   try { if (existsSync(slackReplyConfigPath())) unlinkSync(slackReplyConfigPath()); } catch { /* noop */ }
 }
 
+// ─── iMessage via Photon (text → Rudy's queue, tapback → approval) ───────────
+/**
+ * The iMessage channel deliberately takes the WEBHOOK path, not the Slack one.
+ *
+ * Slack's inbound hop is `liveWebContents()?.send(...)` → renderer →
+ * `enqueueMessage`, which means a message that arrives while the window is
+ * closed is silently dropped. That is survivable for Slack (you are at a desk,
+ * looking at the app) and unacceptable for a phone: the entire point is texting
+ * the office from somewhere else. Routing through `dispatchWebhookWork` keeps
+ * ingestion entirely in main, and inherits the TriggerMode gate, the held-message
+ * ledger and the approve/reject release path for free.
+ */
+let photonChannel: PhotonChannel | null = null;
+
+/** Tapbacks that mean yes / no. Apple's tapback set is fixed and small, so this
+ *  is an allowlist rather than a sentiment guess: anything else is ignored, which
+ *  is what lets a user "haha" a prompt without accidentally deciding it. */
+const PHOTON_APPROVE = new Set(['👍', '❤️', '‼️']);
+const PHOTON_REJECT = new Set(['👎']);
+
+/** Cards this channel replied to directly, so the done-notifier doesn't post a
+ *  second summary on top of an agent's own answer.
+ *
+ *  Keyed by TASK id, not by thread: `directlyRepliedThreads` (the Slack one) is
+ *  keyed on a bare `thread_ts` with no transport prefix, which both collides
+ *  across channels and permanently mutes a thread for every later card. Task ids
+ *  are already globally unique, so this set has neither problem. */
+const photonRepliedTasks = new Set<string>();
+
+function photonSecretRef(): string {
+  return 'photon:project';
+}
+
+/**
+ * One inbound text, run through the same gate a webhook POST gets.
+ *
+ * Held messages are answered IN THE THREAD with a tapback prompt, because on a
+ * phone there is no Triggers tab to go and click. The prompt's own message id is
+ * what the tapback will reference, so it is recorded against the history entry —
+ * that pairing is the whole approval mechanism.
+ */
+async function handlePhotonMessage(m: PhotonInbound): Promise<void> {
+  // A space that owes an answer consumes the next plain text AS that answer.
+  // Checked before the trigger gate on purpose: answering "use the staging DB"
+  // is not a new directive, and running it through classifyInboundKind would
+  // both mis-file it and ask the human to approve their own reply.
+  if (await answerOpenPhotonQuestion(m)) return;
+
+  // "..." while we decide. Paired with the read receipt above it, the human gets
+  // the same two signals any human correspondent would give them: seen, thinking.
+  void photonChannel?.typing(m.spaceId, true);
+  try {
+    await routePhotonMessage(m);
+  } finally {
+    void photonChannel?.typing(m.spaceId, false);
+  }
+}
+
+async function routePhotonMessage(m: PhotonInbound): Promise<void> {
+  const cfg = readConfig();
+  const mode: TriggerMode = cfg.photonTriggerMode ?? DEFAULT_TRIGGER_MODE;
+  const kind: InboundKind = classifyInboundKind(m.text);
+  const title = m.text.length > 80 ? `${m.text.slice(0, 79)}…` : m.text;
+
+  const base = {
+    source: 'imessage' as const,
+    sourceId: 'photon',
+    sourceName: 'iMessage',
+    direction: 'inbound' as const,
+    peer: m.from,
+    title,
+    body: m.text,
+    kind,
+    correlationId: randomBytes(8).toString('hex')
+  };
+
+  if (!isAutoAllowed(mode, kind)) {
+    const entry = appendTriggerHistory({ ...base, decision: 'pending' });
+    const prompt = await photonChannel?.send(m.spaceId, `run this? "${title}"`);
+    if (prompt?.ok && prompt.messageId) {
+      photonPendingTargets().set(entry.id, {
+        spaceId: m.spaceId,
+        messageId: m.messageId,
+        promptId: prompt.messageId
+      });
+      persistPhotonPendingTargets();
+    } else {
+      // No prompt means no tapback can ever arrive. Say so rather than leaving a
+      // silent pending row the user has no way to see, let alone decide.
+      console.error('[photon] could not post approval prompt:', prompt?.error);
+    }
+    prunePhotonPendingTargets();
+    notifyTriggerHistoryUpdated();
+    return;
+  }
+
+  const taskId = `imsg-${randomBytes(8).toString('hex')}`;
+  if (!dispatchWebhookWork({
+    taskId, title, message: m.text, origin: 'imessage',
+    photon: { spaceId: m.spaceId, messageId: m.messageId },
+    bossProtocol: buildPhotonRequestProtocol(m.spaceId, taskId)
+  })) {
+    await photonChannel?.send(m.spaceId, "couldn't save that one — board wasn't writable");
+    return;
+  }
+  appendTriggerHistory({ ...base, decision: 'auto-allowed', taskId });
+  notifyTriggerHistoryUpdated();
+  // A tapback on the user's OWN message is the cheapest possible receipt: it adds
+  // no bubble to the thread and reads as "got it" at a glance.
+  void photonChannel?.react(m.spaceId, m.messageId, '👍');
+}
+
+/**
+ * Send a body to a space, keeping it phone-sized.
+ *
+ * Anything past the budget is written to a file and ATTACHED rather than
+ * truncated away — a diff or a log is usually the actual answer, and silently
+ * dropping its tail is worse than not sending it.
+ */
+async function sendPhotonBody(spaceId: string, body: string): Promise<PhotonSendResult> {
+  const ch = photonChannel;
+  if (!ch) return { ok: false, error: 'channel not running' };
+  const { text, overflow } = formatForIMessage(body);
+  if (!overflow) return ch.send(spaceId, text);
+  try {
+    const dir = join(app.getPath('userData'), 'photon-outbox');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, `detail-${randomBytes(4).toString('hex')}.txt`);
+    writeFileSync(file, body, 'utf8');
+    const res = await ch.sendFiles(spaceId, text, [file]);
+    // Attachment path failed (unsupported build, unreadable file): the trimmed
+    // text is still worth delivering on its own.
+    return res.ok ? res : ch.send(spaceId, text);
+  } catch {
+    return ch.send(spaceId, text);
+  }
+}
+
+/**
+ * Consume an inbound text as the answer to this space's open question./**
+ * Consume an inbound text as the answer to this space's open question.
+ *
+ * Mirrors the Ask-Me tab's `sendAnswer` exactly: record the answer ON the card
+ * (so the decision trail lives with the work it unblocked) and then inform boss
+ * so he acts on it and unblocks. Returns true when the text was consumed.
+ */
+async function answerOpenPhotonQuestion(
+  m: PhotonInbound,
+  opts: { silent?: boolean } = {}
+): Promise<boolean> {
+  const open = photonOpenQuestions().get(m.spaceId);
+  if (!open) return false;
+
+  let tasks: HiveTask[];
+  try {
+    const ledger = hive.tasks() as { tasks?: HiveTask[] };
+    tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
+  } catch { return false; }
+  const card = tasks.find((t) => t.id === open.taskId);
+  // The card vanished (deleted, or aged out): drop the question rather than
+  // swallowing the user's text into nothing.
+  if (!card) {
+    photonOpenQuestions().delete(m.spaceId);
+    persistPhotonOpenQuestions();
+    return false;
+  }
+
+  const qa = (card.humanQA ?? []).map((e) =>
+    e.q === open.q && !e.a ? { ...e, a: m.text, answeredAt: new Date().toISOString() } : e
+  );
+  try { hive.patchTask(card.id, { humanQA: qa }); }
+  catch (e) { console.error('[photon] could not record answer:', e); return false; }
+
+  try {
+    hive.send({
+      to: 'boss',
+      act: 'inform',
+      subject: `HUMAN ANSWER on task "${card.title}"`,
+      body: [
+        `The human answered by iMessage on task ${card.id} ("${card.title}"):`,
+        `Q: ${open.q}`,
+        `A: ${m.text}`,
+        "The answer is also recorded in the card's humanQA. Act on it, unblock the card, and continue the work.",
+        `Reply to them with: "${hive.nodeCommand()}" "${photonReplyScriptPath()}" --space ${m.spaceId} --task ${card.id} --text "<your message>"`
+      ].join('\n')
+    }, 'human');
+  } catch (e) { console.error('[photon] could not route answer to boss:', e); }
+
+  photonOpenQuestions().delete(m.spaceId);
+  persistPhotonOpenQuestions();
+  appendTriggerHistory({
+    source: 'imessage', sourceId: 'photon', sourceName: 'iMessage',
+    direction: 'inbound', peer: m.from, title: `Answer: ${open.q.slice(0, 60)}`,
+    body: m.text, kind: 'communication', decision: 'auto-allowed', taskId: card.id
+  });
+  notifyTriggerHistoryUpdated();
+  if (!opts.silent) {
+    void photonChannel?.react(m.spaceId, m.messageId, '👍');
+    await photonChannel?.send(m.spaceId, 'got it');
+  }
+  return true;
+}
+
+/**
+ * An inbound tapback.
+ *
+ * Tapbacks are for ANSWERING Rudy, not for authorising him — a message you sent
+ * is already the instruction, so asking you to approve it is asking you to
+ * confirm your own request. So a tapback on a question Rudy asked is a yes/no
+ * answer, and only a line explicitly running in 'strict' mode still uses one as
+ * an approval.
+ */
+async function handlePhotonReaction(r: PhotonReaction): Promise<void> {
+  const yes = PHOTON_APPROVE.has(r.emoji);
+  const no = PHOTON_REJECT.has(r.emoji);
+  if (!yes && !no) return;                         // 😂 on a message decides nothing
+
+  // 1) Answering an open question — the common case.
+  const open = photonOpenQuestions().get(r.spaceId);
+  if (open && (!open.promptId || open.promptId === r.targetId)) {
+    await answerOpenPhotonQuestion({
+      text: yes ? 'yes' : 'no',
+      spaceId: r.spaceId,
+      messageId: r.targetId,
+      from: r.from
+    }, { silent: true });
+    await photonChannel?.send(r.spaceId, yes ? 'got it — yes' : 'got it — no');
+    return;
+  }
+
+  // 2) Legacy/strict approval of a held message.
+  const entryId = photonEntryForPrompt(r.targetId);
+  if (!entryId) return;
+  const next = decideTriggerEntry(entryId, yes ? 'approved' : 'rejected');
+  if (!next) return;
+  await photonChannel?.send(r.spaceId, yes ? 'on it' : 'dropped');
+}
+
+/* ── done-notifier (iMessage-origin card → done → one summary reply) ───────── */
+
+let photonDoneTimer: ReturnType<typeof setInterval> | null = null;
+let photonDonePolling = false;
+let photonDoneNotified: Set<string> | null = null;
+
+function photonDoneNotifiedPath(): string {
+  return join(app.getPath('userData'), 'photon-done-notified.json');
+}
+
+function loadPhotonDoneNotified(): Set<string> {
+  try {
+    const arr = JSON.parse(readFileSync(photonDoneNotifiedPath(), 'utf8'));
+    if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === 'string'));
+  } catch { /* missing/corrupt → start empty */ }
+  return new Set();
+}
+
+function persistPhotonDoneNotified(set: Set<string>): void {
+  try { writeFileSync(photonDoneNotifiedPath(), JSON.stringify([...set])); }
+  catch (e) { console.error('[photon] could not persist done-notify ledger:', e); }
+}
+
+/** Per-card memory of what we last told the user about, so a tick only reports
+ *  CHANGE. Statuses and question counts only — never a message body. */
+interface PhotonCardSeen { status: string; qCount: number }
+let photonCardSeen: Record<string, PhotonCardSeen> | null = null;
+
+function photonCardSeenPath(): string {
+  return join(app.getPath('userData'), 'photon-card-seen.json');
+}
+
+function loadPhotonCardSeen(): Record<string, PhotonCardSeen> {
+  try {
+    const raw = JSON.parse(readFileSync(photonCardSeenPath(), 'utf8'));
+    if (raw && typeof raw === 'object') return raw as Record<string, PhotonCardSeen>;
+  } catch { /* missing/corrupt → start empty */ }
+  return {};
+}
+
+function persistPhotonCardSeen(state: Record<string, PhotonCardSeen>): void {
+  try { writeFileSync(photonCardSeenPath(), JSON.stringify(state)); }
+  catch (e) { console.error('[photon] could not persist card-seen ledger:', e); }
+}
+
+/** Last unsolicited send per space. A runaway agent flipping a card between
+ *  statuses must not be able to machine-gun somebody's phone. */
+const photonLastSentAt = new Map<string, number>();
+const PHOTON_MIN_GAP_MS = 15_000;
+
+function photonMaySend(spaceId: string): boolean {
+  const last = photonLastSentAt.get(spaceId) ?? 0;
+  if (Date.now() - last < PHOTON_MIN_GAP_MS) return false;
+  photonLastSentAt.set(spaceId, Date.now());
+  return true;
+}
+
+/** The newest question on a card the human has not answered yet. */
+function openQuestionOf(t: HiveTask): { q: string } | undefined {
+  const qa = t.humanQA ?? [];
+  for (let i = qa.length - 1; i >= 0; i--) {
+    if (qa[i]?.q && !qa[i]?.a && !qa[i]?.dismissedAt) return { q: qa[i].q };
+  }
+  return undefined;
+}
+
+/**
+ * One observation pass over the kanban, reporting every change worth a text —
+ * not just completion.
+ *
+ * The Slack notifier only ever fires on `done`, which is fine at a desk where
+ * the board is on screen. On a phone the board is invisible, so silence between
+ * "queued" and "finished" reads as nothing happening. This reports the
+ * transitions a human actually cares about: work started, work needs them, work
+ * finished.
+ *
+ * A card is BASELINED the first time it is seen and reports nothing, so enabling
+ * the channel (or restarting) never backfills a history of texts.
+ */
+async function pollPhotonCardUpdates(): Promise<void> {
+  if (photonDonePolling) return;
+  if (!photonChannel?.isRunning()) return;
+  let tasks: HiveTask[];
+  try {
+    const ledger = hive.tasks() as { tasks?: HiveTask[] };
+    tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
+  } catch { return; } // unreadable/missing tasks.json → skip this tick
+  const notified = photonDoneNotified ?? (photonDoneNotified = loadPhotonDoneNotified());
+  const seen = photonCardSeen ?? (photonCardSeen = loadPhotonCardSeen());
+
+  photonDonePolling = true;
+  try {
+    let dirty = false;
+    for (const t of tasks) {
+      const target = t.photon;
+      if (!target?.spaceId) continue;                      // non-iMessage card → leave alone
+      const qCount = (t.humanQA ?? []).length;
+      const prev = seen[t.id];
+
+      // First sight: remember where it stands, say nothing.
+      if (!prev) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+
+      // A new question outranks a status change — it is the one that needs them.
+      const open = openQuestionOf(t);
+      if (open && qCount > prev.qCount) {
+        if (photonMaySend(target.spaceId)) {
+          const res = await sendPhotonBody(target.spaceId, open.q);
+          if (res.ok) {
+            photonOpenQuestions().set(target.spaceId, {
+              taskId: t.id, q: open.q, askedAt: Date.now(), promptId: res.messageId
+            });
+            persistPhotonOpenQuestions();
+            seen[t.id] = { status: t.status, qCount };
+            dirty = true;
+          }
+        }
+        continue;
+      }
+
+      if (t.status === prev.status) { 
+        if (qCount !== prev.qCount) { seen[t.id] = { status: t.status, qCount }; dirty = true; }
+        continue;
+      }
+
+      if (t.status === 'done') {
+        // Exactly-once, mark-on-success — unchanged from the original notifier.
+        if (notified.has(t.id)) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+        if (photonRepliedTasks.has(t.id)) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true; continue;
+        }
+        const body = (t.result ?? t.description ?? '').trim();
+        // Never send a bare "done" — if there's no substance, stay quiet.
+        if (!body) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true; continue;
+        }
+        const res = await sendPhotonBody(target.spaceId, body);
+        if (res.ok) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true;
+        } else if (res.error?.startsWith('no live handle')) {
+          // Permanently undeliverable this session (the stream reconnected and
+          // never saw this conversation again); burn it rather than spin.
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true;
+          console.error('[photon] done-summary for task', t.id, 'undeliverable (space not addressable this session); giving up');
+        } else {
+          console.error('[photon] done-summary post failed for task', t.id, '-', res.error, '(will retry)');
+        }
+        continue;
+      }
+
+      // Progress transitions. Only worth a text when they change what the human
+      // knows: work picked up, or work stalled on them.
+      let line: string | null = null;
+      if (t.status === 'doing' && prev.status !== 'doing') line = 'on it';
+      else if (t.status === 'blocked' && prev.status !== 'blocked') {
+        line = open ? open.q : `stuck on "${t.title}"`;
+      }
+      if (!line) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+      if (!photonMaySend(target.spaceId)) continue;        // retry next tick
+      const res = await sendPhotonBody(target.spaceId, line);
+      if (res.ok) {
+        if (t.status === 'blocked' && open) {
+          photonOpenQuestions().set(target.spaceId, {
+            taskId: t.id, q: open.q, askedAt: Date.now(), promptId: res.messageId
+          });
+          persistPhotonOpenQuestions();
+        }
+        seen[t.id] = { status: t.status, qCount };
+        dirty = true;
+      }
+    }
+    if (dirty) persistPhotonCardSeen(seen);
+  } finally {
+    photonDonePolling = false;
+  }
+}
+
+function startPhotonDoneObserver(): void {
+  if (photonDoneTimer) return;
+  photonDoneNotified = loadPhotonDoneNotified();
+  photonDoneTimer = setInterval(() => { void pollPhotonCardUpdates(); }, 5000);
+}
+
+function stopPhotonDoneObserver(): void {
+  if (photonDoneTimer) { clearInterval(photonDoneTimer); photonDoneTimer = null; }
+}
+
+/* ── agent-facing reply path ───────────────────────────────────────────────── */
+
+let photonReplyServer: PhotonReplyServer | null = null;
+
+/** Absolute path to the bundled `rudy-photon-reply.cjs` helper. */
+function photonReplyScriptPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'rudy-photon-reply.cjs')
+    : join(app.getAppPath(), 'resources', 'rudy-photon-reply.cjs');
+}
+
+/** Where the helper discovers `{port, token}`. The FILE only exists while the
+ *  endpoint is up, so the helper degrades to a clean "not running" message. */
+function photonReplyConfigPath(): string {
+  return join(app.getPath('userData'), 'photon-reply.json');
+}
+
+async function startPhotonReplyServer(): Promise<void> {
+  photonReplyServer?.stop();
+  const token = randomBytes(24).toString('hex');
+  photonReplyServer = new PhotonReplyServer({
+    token,
+    send: async (spaceId, text, files) => {
+      if (!photonChannel) return { ok: false, error: 'iMessage channel not running' };
+      if (files && files.length > 0) return photonChannel.sendFiles(spaceId, text, files);
+      return photonChannel.send(spaceId, text);
+    },
+    onReplied: (taskId) => { photonRepliedTasks.add(taskId); }
+  });
+  const r = await photonReplyServer.start();
+  if (!r.ok || r.port === undefined) {
+    console.error('[photon] reply endpoint failed to start:', r.error);
+    photonReplyServer = null;
+    return;
+  }
+  try {
+    writeFileSync(photonReplyConfigPath(), JSON.stringify({ port: r.port, token }), { mode: 0o600 });
+  } catch (e) {
+    console.error('[photon] could not write reply config:', e);
+  }
+}
+
+function stopPhotonReplyServer(): void {
+  try { photonReplyServer?.stop(); } catch (e) { console.error('[photon] reply stop failed:', e); }
+  photonReplyServer = null;
+  try { if (existsSync(photonReplyConfigPath())) unlinkSync(photonReplyConfigPath()); } catch { /* noop */ }
+}
+
+/**
+ * The autonomy preamble for an iMessage-origin request.
+ *
+ * Deliberately NOT `buildAutonomousRequestProtocol` with different nouns: line 4
+ * of the Slack version tells the agent to answer in Slack mrkdwn with a bold
+ * headline, and iMessage renders no markup at all — `*bold*` and
+ * `:white_check_mark:` arrive as literal characters on someone's phone. The
+ * routing/autonomy/report rules are the same; the OUTPUT contract is not.
+ */
+function buildPhotonRequestProtocol(spaceId: string, taskId: string): string {
+  const cmd = `"${hive.nodeCommand()}" "${photonReplyScriptPath()}" --space ${spaceId} --task ${taskId}`;
+  return `[THIS ARRIVED BY TEXT MESSAGE. No one is watching a screen — they are on their phone.]
+1. ROUTE IT NOW. Check the live roster (registry.json + fleet.json) and hand this to the agent that already fits; only spawn one if nothing does. Don't sit on it.
+2. THE AGENT TEXTS BACK ITSELF when done: ${cmd} --text "<answer>"
+   To send a file, image, chart or screenshot, add --file <absolute path> (repeatable). A picture or the actual diff is usually the answer — send it rather than describing it.
+3. WRITE LIKE A PERSON TEXTING, NOT A REPORT. This is the single most important rule:
+   - One or two short sentences. Usually one. Lead with the answer.
+   - Lowercase, contractions, plain words. "deployed, took 4 min" not "Deployment completed successfully."
+   - NO markdown, NO asterisks, NO backticks, NO :emoji_codes:, NO bullet lists, NO headings — iMessage shows them as literal junk characters.
+   - Don't restate the question, don't preamble, don't sign off, don't say "I have completed". Never a bare "done".
+   - Long output (logs, diffs, files) goes in --file, not in the message body.
+4. WORK AUTONOMOUSLY. No interactive questions. Pause only for: pushing to a remote, spending money, or deleting something you did not create.
+5. IF YOU GENUINELY NEED A DECISION, ask ONE short question via the reply command and set the card to blocked with the question in humanQA. They can reply in a sentence, or just thumbs-up/thumbs-down it. Then continue.
+6. TELL RUDY what you did afterwards.
+Their message: `;
+}
+
+/** Open the iMessage channel from the current config. No port, no tunnel — this
+ *  dials out, so there is nothing for the user to paste anywhere. */
+async function startPhotonChannel(): Promise<{ ok: boolean; error?: string }> {
+  const cfg = readConfig();
+  if (!cfg.photonEnabled || !cfg.photonProjectId) {
+    return { ok: false, error: 'iMessage disabled or missing project id' };
+  }
+  await stopPhotonChannel();
+  photonChannel = new PhotonChannel({
+    projectId: cfg.photonProjectId,
+    // Read at use time so rotating the secret in Settings needs no restart.
+    getProjectSecret: () => integrations.getSecret(photonSecretRef()),
+    allowlist: cfg.photonAllowlist ?? [],
+    onMessage: (m) => handlePhotonMessage(m).catch((e) => console.error('[photon] inbound failed:', e)),
+    onReaction: (r) => handlePhotonReaction(r).catch((e) => console.error('[photon] tapback failed:', e))
+  });
+  const res = await photonChannel.start();
+  if (!res.ok) { photonChannel = null; return res; }
+  await startPhotonReplyServer();
+  startPhotonDoneObserver();
+  analytics.trackFeature('imessage_trigger');
+  return res;
+}
+
+/** Close the channel. Best-effort and safe to call when nothing is running. */
+async function stopPhotonChannel(): Promise<void> {
+  const ch = photonChannel;
+  photonChannel = null;
+  if (ch) { try { await ch.stop(); } catch (e) { console.error('[photon] stop failed:', e); } }
+  stopPhotonDoneObserver();
+  stopPhotonReplyServer();
+}
+
 // ─── Generic inbound webhook + status API (multi-endpoint) ───────────────────
 /** The running generic-webhook server, or null when disabled/stopped. A PUBLIC
  *  (tunnel-forwarded) surface — secret-gated, unlike the loopback /reply. ONE
@@ -1777,6 +2317,89 @@ function heldTokenHashFor(entryId: string): string | undefined {
   return undefined;
 }
 
+/** history entry id → where its iMessage came from, plus the id of the prompt we
+ *  sent asking for a tapback.
+ *
+ *  The exact analogue of `heldTokens` above, for the same reason: a held message
+ *  has no card yet, so the reply address has to live somewhere until approval
+ *  creates one. It is deliberately NOT in the ledger — addressing is transport
+ *  state, not history — and it is mirrored into the durable kv store so a restart
+ *  doesn't strand a 👍 the user has not tapped yet.
+ *
+ *  `promptId` is what an inbound tapback carries, so it is the reverse-lookup key. */
+interface PhotonPendingTarget { spaceId: string; messageId: string; promptId: string }
+let photonPending: Map<string, PhotonPendingTarget> | null = null;
+const PHOTON_PENDING_KV_KEY = 'triggers.photon.pendingTargets';
+
+function photonPendingTargets(): Map<string, PhotonPendingTarget> {
+  if (photonPending) return photonPending;
+  let stored: Record<string, PhotonPendingTarget> | undefined;
+  try { stored = persist.getKv<Record<string, PhotonPendingTarget>>(PHOTON_PENDING_KV_KEY); }
+  catch { stored = undefined; }
+  const entries = stored && typeof stored === 'object' ? Object.entries(stored) : [];
+  photonPending = new Map(entries.filter((e): e is [string, PhotonPendingTarget] =>
+    !!e[1] && typeof e[1].spaceId === 'string' && typeof e[1].messageId === 'string' && typeof e[1].promptId === 'string'));
+  return photonPending;
+}
+
+function persistPhotonPendingTargets(): void {
+  try { persist.setKv(PHOTON_PENDING_KV_KEY, Object.fromEntries(photonPendingTargets())); }
+  catch (e) { console.error('[photon] could not persist pending-target map:', e); }
+}
+
+/** Which held entry a tapback on `promptId` decides, if any is still waiting. */
+function photonEntryForPrompt(promptId: string): string | undefined {
+  for (const [entryId, t] of photonPendingTargets()) if (t.promptId === promptId) return entryId;
+  return undefined;
+}
+
+/** spaceId → the open question that space owes an answer to.
+ *
+ *  This is what turns the channel from a command line into a CONVERSATION: while
+ *  a space has an open question, the user's next plain text is read as the ANSWER
+ *  to it rather than as a new task. Persisted, because a blocked card can easily
+ *  outlive an app restart and the human shouldn't have to know that. */
+interface PhotonOpenQuestion {
+  taskId: string;
+  q: string;
+  askedAt: number;
+  /** Id of the message we asked in. A tapback ON THIS is a yes/no answer —
+   *  which is what tapbacks are for here: answering Rudy, not authorising him. */
+  promptId?: string;
+}
+let photonQuestions: Map<string, PhotonOpenQuestion> | null = null;
+const PHOTON_QUESTIONS_KV_KEY = 'triggers.photon.openQuestions';
+
+function photonOpenQuestions(): Map<string, PhotonOpenQuestion> {
+  if (photonQuestions) return photonQuestions;
+  let stored: Record<string, PhotonOpenQuestion> | undefined;
+  try { stored = persist.getKv<Record<string, PhotonOpenQuestion>>(PHOTON_QUESTIONS_KV_KEY); }
+  catch { stored = undefined; }
+  const entries = stored && typeof stored === 'object' ? Object.entries(stored) : [];
+  photonQuestions = new Map(entries.filter((e): e is [string, PhotonOpenQuestion] =>
+    !!e[1] && typeof e[1].taskId === 'string' && typeof e[1].q === 'string'));
+  return photonQuestions;
+}
+
+function persistPhotonOpenQuestions(): void {
+  try { persist.setKv(PHOTON_QUESTIONS_KV_KEY, Object.fromEntries(photonOpenQuestions())); }
+  catch (e) { console.error('[photon] could not persist open-question map:', e); }
+}
+
+/** Drop targets whose history entry has aged out of the capped ledger. Mirrors
+ *  `pruneHeldTokens`; without it a long-lived install leaks one row per text. *//** Drop targets whose history entry has aged out of the capped ledger. Mirrors
+ *  `pruneHeldTokens`; without it a long-lived install leaks one row per text. */
+function prunePhotonPendingTargets(): void {
+  const map = photonPendingTargets();
+  if (map.size === 0) return;
+  const live = new Set(listTriggerHistory().map((e) => e.id));
+  let changed = false;
+  for (const entryId of [...map.keys()]) {
+    if (!live.has(entryId)) { map.delete(entryId); changed = true; }
+  }
+  if (changed) persistPhotonPendingTargets();
+}
+
 /** Tell the Triggers tab its ledger moved, so history live-refreshes instead of
  *  waiting for the operator to re-open the tab. */
 function notifyTriggerHistoryUpdated(): void {
@@ -1801,8 +2424,13 @@ function dispatchWebhookWork(arg: {
   message: string;
   /** Stamped onto the card so a GET can match the caller's token. */
   tokenHash?: string;
-  /** 'webhook' | 'org' — only for the subject line and the boss-facing note. */
-  origin: 'webhook' | 'org';
+  /** Stamped onto the card so the iMessage done-notifier knows where to reply. */
+  photon?: { spaceId: string; messageId: string };
+  /** Channel-specific autonomy preamble, prepended to the BOSS-facing body only.
+   *  Never reaches the card title/description, which stay human-readable. */
+  bossProtocol?: string;
+  /** Only for the subject line and the boss-facing note. */
+  origin: TriggerSource;
 }): boolean {
   try {
     const card: HiveTask = {
@@ -1813,7 +2441,8 @@ function dispatchWebhookWork(arg: {
       dependsOn: [],
       priority: 1,
       createdAt: new Date().toISOString(),
-      ...(arg.tokenHash ? { webhook: { tokenHash: arg.tokenHash } } : {})
+      ...(arg.tokenHash ? { webhook: { tokenHash: arg.tokenHash } } : {}),
+      ...(arg.photon ? { photon: arg.photon } : {})
     };
     // addTask appends against the latest on-disk ledger and is idempotent by task
     // id, so a concurrent card writer (Slack, boss, voice, another webhook) can't
@@ -1832,9 +2461,9 @@ function dispatchWebhookWork(arg: {
       to: 'boss',
       act: 'request',
       subject: `[${arg.origin}] ${arg.title}`,
-      body: `${arg.message}\n\n(Inbound via the generic ${arg.origin} API, tracked as kanban card ${arg.taskId}. When this work is finished, set that card's status to 'done' and fill its 'result' so the caller's status check reflects the outcome.)`,
+      body: `${arg.bossProtocol ?? ''}${arg.message}\n\n(Inbound via ${arg.origin === 'imessage' ? 'iMessage' : `the generic ${arg.origin} API`}, tracked as kanban card ${arg.taskId}. When this work is finished, set that card's status to 'done' and fill its 'result' so the caller's status check reflects the outcome.)`,
       requires_reply: false
-    }, 'webhook');
+    }, arg.origin === 'imessage' ? 'imessage' : 'webhook');
   } catch (e) {
     console.error('[webhook] could not route to boss:', e instanceof Error ? e.message : e);
   }
@@ -3350,6 +3979,7 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   try { hive.stopRouter(); } catch (e) { console.error('[changeHome] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[changeHome] hookServer.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[changeHome] slack.stop:', e); }
+  void stopPhotonChannel().catch((e) => console.error('[changeHome] photon.stop:', e));
   try { stopWebhookServer(); } catch (e) { console.error('[changeHome] webhook.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[changeHome] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[changeHome] reflector.stop:', e); }
@@ -3837,6 +4467,7 @@ function teardownAndQuit(): void {
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[quit] slack.stop:', e); }
+  void stopPhotonChannel().catch((e) => console.error('[quit] photon.stop:', e));
   try { stopWebhookServer(); } catch (e) { console.error('[quit] webhook.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[quit] reflector.stop:', e); }
@@ -3899,6 +4530,7 @@ ipcMain.handle('app:resetAll', () => {
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[reset] slack.stop:', e); }
+  void stopPhotonChannel().catch((e) => console.error('[reset] photon.stop:', e));
   try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[reset] reflector.stop:', e); }
   try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
@@ -4188,6 +4820,50 @@ ipcMain.handle('slack:setConfig', (_evt, patch: unknown) => {
   return { ok: true };
 });
 
+// ─── IPC: iMessage via Photon ───────────────────────────────────────────────
+// No start URL to surface: the channel dials OUT, so unlike Slack/webhook there
+// is nothing for the user to copy anywhere.
+ipcMain.handle('photon:start', () => startPhotonChannel());
+ipcMain.handle('photon:stop', async () => { await stopPhotonChannel(); return { ok: true }; });
+ipcMain.handle('photon:status', () => ({
+  running: photonChannel?.isRunning() ?? false,
+  hasSecret: integrations.hasSecret(photonSecretRef())
+}));
+/** Write-only, exactly like `mcpKey:set`: the secret goes in and can never be
+ *  read back out over IPC. Mirrors the broker's posture for every credential. */
+ipcMain.handle('photon:setSecret', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { secret?: unknown };
+  if (typeof p.secret !== 'string' || !p.secret) return { ok: false, error: 'secret required' };
+  return integrations.setSecret(photonSecretRef(), p.secret);
+});
+ipcMain.handle('photon:clearSecret', () => {
+  integrations.deleteSecret(photonSecretRef());
+  return { ok: true };
+});
+ipcMain.handle('photon:setConfig', async (_evt, patch: unknown) => {
+  const p = (patch ?? {}) as {
+    projectId?: unknown; allowlist?: unknown; enabled?: unknown; mode?: unknown;
+  };
+  const next: Partial<HarnessConfig> = {};
+  if (typeof p.projectId === 'string') next.photonProjectId = p.projectId.trim() || undefined;
+  if (typeof p.enabled === 'boolean') next.photonEnabled = p.enabled;
+  if (isTriggerMode(p.mode)) next.photonTriggerMode = p.mode;
+  if (Array.isArray(p.allowlist)) {
+    next.photonAllowlist = p.allowlist
+      .filter((h): h is string => typeof h === 'string')
+      .map((h) => h.trim())
+      .filter(Boolean);
+  }
+  writeConfig(next);
+  // Reconcile: disabling, clearing the project id, or emptying the allowlist all
+  // close the line. An allowlist-less channel must never keep running.
+  const cfg = readConfig();
+  if (!cfg.photonEnabled || !cfg.photonProjectId || (cfg.photonAllowlist ?? []).length === 0) {
+    await stopPhotonChannel();
+  }
+  return { ok: true };
+});
+
 // ─── IPC: Triggers — context (auto-compact / auto-clear) ────────────────────
 ipcMain.handle('triggers:getContext', () => readConfig().contextTrigger ?? DEFAULT_CONTEXT_TRIGGER);
 ipcMain.handle('triggers:setContext', (_evt, arg: unknown) => {
@@ -4308,7 +4984,7 @@ ipcMain.handle('org:setTrigger', (_evt, arg: unknown) => {
 // ─── IPC: Triggers — history ledger + the approval gate ─────────────────────
 ipcMain.handle('triggerHistory:list', () => listTriggerHistory());
 ipcMain.handle('triggerHistory:clear', (_evt, arg: unknown) => {
-  const source = arg === 'webhook' || arg === 'org' ? arg : undefined;
+  const source = arg === 'webhook' || arg === 'org' || arg === 'imessage' ? arg : undefined;
   clearTriggerHistory(source);
   pruneHeldTokens();
   notifyTriggerHistoryUpdated();
@@ -4325,25 +5001,35 @@ ipcMain.handle('triggerHistory:clear', (_evt, arg: unknown) => {
  * decided, so a double-click (or two windows deciding at once) cannot dispatch
  * the same message twice.
  */
-ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
-  const p = (arg ?? {}) as { id?: unknown; decision?: unknown };
-  const id = typeof p.id === 'string' ? p.id : '';
-  const decision = p.decision === 'approved' ? 'approved' : p.decision === 'rejected' ? 'rejected' : null;
-  if (!id || !decision) return null;
+function decideTriggerEntry(
+  id: string,
+  decision: 'approved' | 'rejected'
+): TriggerHistoryEntry | null {
   const entry: TriggerHistoryEntry | undefined = listTriggerHistory().find((e) => e.id === id);
   if (!entry) return null;
   if (entry.decision !== 'pending') return entry; // already decided → no-op, not a re-dispatch
 
   if (decision === 'rejected') {
     const next = updateTriggerHistory(id, { decision: 'rejected' });
+    photonPendingTargets().delete(id);
+    persistPhotonPendingTargets();
     notifyTriggerHistoryUpdated();
     return next;
   }
 
-  const taskId = `webhook-${randomBytes(8).toString('hex')}`;
+  const taskId = `${entry.source === 'imessage' ? 'imsg' : 'webhook'}-${randomBytes(8).toString('hex')}`;
   const tokenHash = heldTokenHashFor(id);
+  // Side-carried exactly like `tokenHash` above: the reply target never enters the
+  // ledger (it is transport addressing, not history), so it is looked up here and
+  // stamped onto the card the same way.
+  const photon = photonPendingTargets().get(id);
   const title = entry.title ?? (entry.body.length > 80 ? `${entry.body.slice(0, 79)}…` : entry.body);
-  if (!dispatchWebhookWork({ taskId, title, message: entry.body, tokenHash, origin: entry.source })) {
+  // An approved iMessage must produce the SAME boss request an auto-allowed one
+  // would have — including the reply handle, or the agent has no way to answer.
+  const bossProtocol = entry.source === 'imessage' && photon
+    ? buildPhotonRequestProtocol(photon.spaceId, taskId)
+    : undefined;
+  if (!dispatchWebhookWork({ taskId, title, message: entry.body, tokenHash, photon, bossProtocol, origin: entry.source })) {
     // The card is what the caller polls and what boss works from. Leave the entry
     // pending so the operator can approve again once the hive is writable.
     return entry;
@@ -4351,10 +5037,19 @@ ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
   // The hash now lives on the card, so the caller's GET resolves through the
   // normal task lookup from here on.
   if (tokenHash) { heldTokens().delete(tokenHash); persistHeldTokens(); }
+  if (photon) { photonPendingTargets().delete(id); persistPhotonPendingTargets(); }
   const next = updateTriggerHistory(id, { decision: 'approved', taskId });
   pruneHeldTokens();
   notifyTriggerHistoryUpdated();
   return next;
+}
+
+ipcMain.handle('triggerHistory:decide', (_evt, arg: unknown) => {
+  const p = (arg ?? {}) as { id?: unknown; decision?: unknown };
+  const id = typeof p.id === 'string' ? p.id : '';
+  const decision = p.decision === 'approved' ? 'approved' : p.decision === 'rejected' ? 'rejected' : null;
+  if (!id || !decision) return null;
+  return decideTriggerEntry(id, decision);
 });
 
 // ─── IPC: Generic webhook (LEGACY single-endpoint channels) ─────────────────
@@ -5414,6 +6109,7 @@ app.whenReady().then(() => {
   // server is running; the FILE only exists while it is, so the helper degrades
   // to "endpoint not running" cleanly. NO secret is in the env — only the path.
   process.env.MD_SLACK_REPLY_CONFIG = slackReplyConfigPath();
+  process.env.MD_PHOTON_REPLY_CONFIG = photonReplyConfigPath();
   // Open the durable store first — createWindow() reads the saved window bounds.
   // Guarded: a DB failure (e.g. a bad native build) must degrade to defaults,
   // never block app startup.
@@ -5446,6 +6142,17 @@ app.whenReady().then(() => {
     void startSlackServer().then((r) => {
       if (!r.ok) console.error('[slack] auto-start failed:', r.error);
       else console.log('[slack] webhook listening', r.url ? `(tunnel: ${r.url})` : '(no tunnel)');
+    });
+  }
+
+  // Auto-start the iMessage channel when configured. Unlike Slack there is no
+  // URL to re-paste, so a reconnect is invisible to the user — the channel just
+  // comes back up with the app.
+  const photonCfg = readConfig();
+  if (photonCfg.photonEnabled && photonCfg.photonProjectId) {
+    void startPhotonChannel().then((r) => {
+      if (!r.ok) console.error('[photon] auto-start failed:', r.error);
+      else console.log('[photon] iMessage channel connected');
     });
   }
   // Auto-start the generic webhook only for endpoints the user has explicitly

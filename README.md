@@ -130,6 +130,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 
 **Getting work in and out**
 - **Slack & webhooks** — message a channel or POST a webhook; Rudy can spawn an ephemeral worker, reply in-thread, and tear it down.
+- **iMessage** — text the office from your phone with your own Photon project. Every text waits for a 👍 tapback before it runs, and the answer comes back in the thread.
 - **Shareable hires** — import a role from a `rudyos://hire` link or a `.json` manifest; import only pre-fills the form, a human still spawns it.
 - **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs.
 - **Updates in one click** — the title-bar badge fetches the build for your machine and tells you how to install it, and it reads `latest` once a check confirms you are current. The first run afterwards opens that release's notes as a designed page rather than a version number. Background auto-update stays in Settings.
@@ -284,7 +285,7 @@ Full history in [`CHANGELOG.md`](./CHANGELOG.md).
 
 Next up:
 
-- [ ] **More chat integrations** — Telegram and richer chat bridges that pipe a channel into Rudy's queue and route replies back out.
+- [ ] **More chat integrations** — Telegram and richer chat bridges that pipe a channel into Rudy's queue and route replies back out. (iMessage shipped; the next one is the point at which the Slack/iMessage overlap is worth extracting into one channel interface.)
 - [ ] **More engines & integration templates** — keep growing the engine roster and the integrations registry.
 - [ ] **Fuller avatar coverage** — drive the remaining station visits and tool-bubbles entirely from real hook events.
 - [ ] **Durable layout & command history** — extend persistence to agent layout and per-session history.

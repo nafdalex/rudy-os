@@ -42,7 +42,10 @@ let inboundQueue = [];
 function makeSpace(id) {
   return {
     id,
-    send: async (text) => { sent.push({ spaceId: id, text }); return { id: `sent-${sent.length}` }; },
+    send: async (...parts) => {
+      sent.push({ spaceId: id, text: parts[0], parts });
+      return { id: `sent-${sent.length}` };
+    },
     responding: async (fn) => fn(),
     startTyping: async () => { typingLog.push([id, true]); },
     stopTyping: async () => { typingLog.push([id, false]); },
@@ -101,7 +104,10 @@ for (const spec of ['spectrum-ts', 'spectrum-ts/providers/imessage']) {
             { config: () => ({}) }
           )
         }
-      : { Spectrum: async () => stubApp }
+      : {
+          Spectrum: async () => stubApp,
+          attachment: (input, opts) => ({ __attachment: input, name: opts?.name })
+        }
   };
 }
 const origResolve = Module._resolveFilename;
@@ -320,5 +326,57 @@ test('the office can open a conversation from a bare handle', async () => {
   const res = await ch.sendToHandle('+15551234567', 'first contact');
   assert.equal(res.ok, true, 'outbound-first must work with no inbound history');
   assert.equal(sent.at(-1).spaceId, 'any;-;+15551234567');
+  await ch.stop();
+});
+
+/* ─────────────────────────── files and images ────────────────────────────── */
+
+const os = require('node:os');
+const fs = require('node:fs');
+const path = require('node:path');
+
+function tmpFile(name, body = 'x') {
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'photon-')), name);
+  fs.writeFileSync(f, body);
+  return f;
+}
+
+test('a file is attached alongside its caption', async () => {
+  const { ch } = await makeChannel([]);
+  resolvableSpaces.add('space-1');
+  const chart = tmpFile('chart.png');
+  const res = await ch.sendFiles('space-1', 'this week', [chart]);
+  assert.equal(res.ok, true);
+  const last = sent.at(-1);
+  assert.equal(last.parts[0], 'this week', 'caption goes first');
+  assert.equal(last.parts[1].__attachment, chart, 'the file itself must be attached');
+  assert.equal(last.parts[1].name, 'chart.png', 'the phone should show a real filename');
+  await ch.stop();
+});
+
+test('a file with no caption still sends', async () => {
+  const { ch } = await makeChannel([]);
+  resolvableSpaces.add('space-1');
+  const res = await ch.sendFiles('space-1', '', [tmpFile('out.log')]);
+  assert.equal(res.ok, true, 'an image is often the whole answer — no caption needed');
+  assert.equal(sent.at(-1).parts.length, 1, 'an empty caption must not be sent as a blank message');
+  await ch.stop();
+});
+
+test('unreadable paths are refused rather than sent as text', async () => {
+  const { ch } = await makeChannel([]);
+  resolvableSpaces.add('space-1');
+  const res = await ch.sendFiles('space-1', 'here', ['/nope/missing.png']);
+  assert.equal(res.ok, false);
+  assert.match(res.error, /no readable files/);
+  await ch.stop();
+});
+
+test('multiple files all ride along', async () => {
+  const { ch } = await makeChannel([]);
+  resolvableSpaces.add('space-1');
+  const res = await ch.sendFiles('space-1', 'both', [tmpFile('a.png'), tmpFile('b.txt')]);
+  assert.equal(res.ok, true);
+  assert.equal(sent.at(-1).parts.length, 3, 'caption + two attachments');
   await ch.stop();
 });

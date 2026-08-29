@@ -74,6 +74,9 @@ export interface PhotonMessage {
   read(): Promise<void>;
 }
 
+/** Content builder for a file/image, from the SDK's `attachment()` export. */
+type AttachmentFn = (input: string, options?: { name?: string; mimeType?: string }) => unknown;
+
 interface SpectrumApp {
   readonly messages: AsyncIterable<[PhotonSpace, PhotonMessage]>;
   stop(): Promise<void>;
@@ -148,6 +151,9 @@ const MAX_IMESSAGE_CHARS = 800;
 /** Reconnect backoff bounds for a dropped stream. */
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 60_000;
+
+import { statSync } from 'node:fs';
+import { basename } from 'node:path';
 
 /* ─────────────────────────────── helpers ─────────────────────────────────── */
 
@@ -246,6 +252,7 @@ export class PhotonChannel {
    *  a round trip. Keyed by space id. */
   private readonly spaces = new Map<string, PhotonSpace>();
   private platform: PhotonPlatform | null = null;
+  private attachmentFn: AttachmentFn | null = null;
   private reconnectDelay = RECONNECT_BASE_MS;
 
   constructor(private readonly opts: PhotonChannelOptions) {}
@@ -290,6 +297,8 @@ export class PhotonChannel {
     const { imessage } = (await import('spectrum-ts/providers/imessage')) as unknown as {
       imessage: ((app: unknown) => PhotonPlatform) & { config: () => unknown };
     };
+    const core = (await import('spectrum-ts')) as unknown as { attachment?: AttachmentFn };
+    this.attachmentFn = core.attachment ?? null;
     this.app = await Spectrum({
       projectId: this.opts.projectId,
       projectSecret: secret,
@@ -442,6 +451,35 @@ export class PhotonChannel {
     }
   }
 
+  /**
+   * Send files (images, PDFs, logs) with an optional caption.
+   *
+   * This is what makes a phone a real output surface rather than a text-only
+   * one: a chart, a screenshot, or a diff is the answer far more often than a
+   * paragraph describing it. Paths are sent as-is; the platform infers the type
+   * and renders images inline.
+   *
+   * Each file is sent as its own content item alongside the caption, so a
+   * partial failure can't lose the caption too.
+   */
+  async sendFiles(spaceId: string, caption: string, files: string[]): Promise<PhotonSendResult> {
+    const space = await this.resolveSpace(spaceId);
+    if (!space) return { ok: false, error: `no live handle for space ${spaceId}` };
+    const make = this.attachmentFn;
+    if (!make) return { ok: false, error: 'attachments unavailable in this SDK build' };
+    const usable = files.filter((f) => { try { return statSync(f).isFile(); } catch { return false; } });
+    if (usable.length === 0) return { ok: false, error: 'no readable files' };
+    try {
+      const parts: unknown[] = [];
+      if (caption.trim()) parts.push(caption);
+      for (const f of usable) parts.push(make(f, { name: basename(f) }));
+      const sent = await (space.send as (...c: unknown[]) => Promise<{ readonly id: string } | undefined>)(...parts);
+      return { ok: true, messageId: sent?.id };
+    } catch (e) {
+      return { ok: false, error: errMsg(e) };
+    }
+  }
+
   /** Show a typing indicator for the duration of `fn`. Best-effort. */
   async responding<T>(spaceId: string, fn: () => T | Promise<T>): Promise<T> {
     const space = await this.resolveSpace(spaceId);
@@ -500,8 +538,9 @@ export class PhotonChannel {
 export interface PhotonReplyServerOptions {
   /** Secret the helper echoes in `x-md-reply-token`. Per-session, not persisted. */
   token: string;
-  /** Performs the actual send. Injected so this class holds no credential. */
-  send: (spaceId: string, text: string) => Promise<PhotonSendResult>;
+  /** Performs the actual send. Injected so this class holds no credential.
+   *  `files` are absolute paths the agent wants attached. */
+  send: (spaceId: string, text: string, files?: string[]) => Promise<PhotonSendResult>;
   /** Told which task a direct reply covered, so the done-notifier stays quiet. */
   onReplied?: (taskId: string) => void;
 }
@@ -566,17 +605,22 @@ export class PhotonReplyServer {
       }
     }
 
-    let parsed: { spaceId?: unknown; text?: unknown; taskId?: unknown };
+    let parsed: { spaceId?: unknown; text?: unknown; taskId?: unknown; files?: unknown };
     try { parsed = JSON.parse(body); }
     catch { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'bad json' })); return; }
-    if (typeof parsed.spaceId !== 'string' || typeof parsed.text !== 'string'
-      || !parsed.spaceId.trim() || !parsed.text.trim()) {
-      res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'spaceId and text required' }));
+    const hasFiles = Array.isArray(parsed.files) && parsed.files.length > 0;
+    if (typeof parsed.spaceId !== 'string' || !parsed.spaceId.trim()
+      || (typeof parsed.text !== 'string' && !hasFiles)) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ ok: false, error: 'spaceId plus text or files required' }));
       return;
     }
-
-    const { text } = formatForIMessage(parsed.text);
-    const r = await this.opts.send(parsed.spaceId, text);
+    const caption = typeof parsed.text === 'string' ? parsed.text : '';
+    const files = Array.isArray(parsed.files)
+      ? parsed.files.filter((f): f is string => typeof f === 'string' && f.length > 0)
+      : [];
+    const { text } = formatForIMessage(caption);
+    const r = await this.opts.send(parsed.spaceId, text, files);
     // Only a DELIVERED reply suppresses the summary — a failed one must still
     // leave the done-notifier free to try.
     if (r.ok && typeof parsed.taskId === 'string' && parsed.taskId) {

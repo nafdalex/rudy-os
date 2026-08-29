@@ -6,7 +6,12 @@
  *
  * Invoked BY AN AGENT, out of process:
  *   node <resources>/rudy-photon-reply.cjs --space <spaceId> --text "<message>"
- *                                          [--task <taskId>]
+ *                                          [--file <abs path>]... [--task <taskId>]
+ *
+ * `--file` is repeatable and takes an ABSOLUTE path. Images render inline on the
+ * phone; anything else arrives as an attachment. A chart, screenshot or diff is
+ * usually the answer itself — send it rather than describing it. With files,
+ * --text becomes an optional caption.
  *
  * The agent never holds the Photon project secret. This script talks to a
  * loopback-only endpoint inside the Rudy main process, authenticating with a
@@ -23,6 +28,7 @@
 
 const fs = require('node:fs');
 const http = require('node:http');
+const path = require('node:path');
 
 function fail(msg) {
   process.stderr.write(`rudy-photon-reply: ${msg}\n`);
@@ -31,29 +37,35 @@ function fail(msg) {
 
 /** Supports both `--key value` and `--key=value`; a valueless flag is `true`. */
 function parseArgs(argv) {
-  const out = {};
+  const out = { file: [] };
+  const put = (k, v) => { if (k === 'file') out.file.push(v); else out[k] = v; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith('--')) continue;
     const eq = a.indexOf('=');
-    if (eq !== -1) {
-      out[a.slice(2, eq)] = a.slice(eq + 1);
-      continue;
-    }
+    if (eq !== -1) { put(a.slice(2, eq), a.slice(eq + 1)); continue; }
     const next = argv[i + 1];
     if (next === undefined || next.startsWith('--')) out[a.slice(2)] = true;
-    else { out[a.slice(2)] = next; i++; }
+    else { put(a.slice(2), next); i++; }
   }
   return out;
 }
 
 const args = parseArgs(process.argv.slice(2));
 const space = args.space || args.spaceId;
-const text = args.text;
+const text = typeof args.text === 'string' ? args.text : '';
 const task = typeof args.task === 'string' ? args.task : undefined;
+const files = (args.file || []).filter((f) => typeof f === 'string' && f.length > 0);
 
-if (!space || space === true || !text || text === true) {
-  fail('required: --space <spaceId> --text "<message>"  [--task <taskId>]');
+// Absolute paths only: this runs from whatever cwd the agent happened to be in,
+// so a relative path would resolve somewhere unpredictable, or not at all.
+for (const f of files) {
+  if (!path.isAbsolute(f)) fail(`--file needs an absolute path, got: ${f}`);
+  if (!fs.existsSync(f)) fail(`--file not found: ${f}`);
+}
+
+if (!space || space === true || (!text && files.length === 0)) {
+  fail('required: --space <spaceId> plus --text "<message>" and/or --file <abs path>');
 }
 
 const configPath = args.config || process.env.MD_PHOTON_REPLY_CONFIG;
@@ -73,7 +85,7 @@ if (!cfg || typeof cfg.port !== 'number' || typeof cfg.token !== 'string') {
   fail(`malformed reply config at ${configPath}`);
 }
 
-const body = JSON.stringify({ spaceId: space, text, taskId: task });
+const body = JSON.stringify({ spaceId: space, text, taskId: task, files });
 const req = http.request(
   {
     host: '127.0.0.1',
@@ -93,7 +105,9 @@ const req = http.request(
       let json = {};
       try { json = JSON.parse(raw); } catch { /* keep raw for the error message */ }
       if (res.statusCode === 200 && json.ok) {
-        process.stdout.write('Sent reply by iMessage.\n');
+        process.stdout.write(files.length > 0
+          ? `Sent reply by iMessage with ${files.length} file(s).\n`
+          : 'Sent reply by iMessage.\n');
         process.exit(0);
       }
       fail(`reply failed (HTTP ${res.statusCode}): ${json.error || raw || 'unknown error'}`);

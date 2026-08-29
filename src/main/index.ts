@@ -39,7 +39,7 @@ import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
   PhotonChannel, PhotonReplyServer, formatForIMessage,
-  type PhotonInbound, type PhotonReaction
+  type PhotonInbound, type PhotonReaction, type PhotonSendResult
 } from './photon';
 import {
   WebhookServer,
@@ -1785,10 +1785,7 @@ async function routePhotonMessage(m: PhotonInbound): Promise<void> {
 
   if (!isAutoAllowed(mode, kind)) {
     const entry = appendTriggerHistory({ ...base, decision: 'pending' });
-    const prompt = await photonChannel?.send(
-      m.spaceId,
-      `Queued: “${title}”\n\n👍 to run it, 👎 to drop it.`
-    );
+    const prompt = await photonChannel?.send(m.spaceId, `run this? "${title}"`);
     if (prompt?.ok && prompt.messageId) {
       photonPendingTargets().set(entry.id, {
         spaceId: m.spaceId,
@@ -1812,7 +1809,7 @@ async function routePhotonMessage(m: PhotonInbound): Promise<void> {
     photon: { spaceId: m.spaceId, messageId: m.messageId },
     bossProtocol: buildPhotonRequestProtocol(m.spaceId, taskId)
   })) {
-    await photonChannel?.send(m.spaceId, "Couldn't file that as a task — the office board wasn't writable.");
+    await photonChannel?.send(m.spaceId, "couldn't save that one — board wasn't writable");
     return;
   }
   appendTriggerHistory({ ...base, decision: 'auto-allowed', taskId });
@@ -1823,13 +1820,43 @@ async function routePhotonMessage(m: PhotonInbound): Promise<void> {
 }
 
 /**
+ * Send a body to a space, keeping it phone-sized.
+ *
+ * Anything past the budget is written to a file and ATTACHED rather than
+ * truncated away — a diff or a log is usually the actual answer, and silently
+ * dropping its tail is worse than not sending it.
+ */
+async function sendPhotonBody(spaceId: string, body: string): Promise<PhotonSendResult> {
+  const ch = photonChannel;
+  if (!ch) return { ok: false, error: 'channel not running' };
+  const { text, overflow } = formatForIMessage(body);
+  if (!overflow) return ch.send(spaceId, text);
+  try {
+    const dir = join(app.getPath('userData'), 'photon-outbox');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, `detail-${randomBytes(4).toString('hex')}.txt`);
+    writeFileSync(file, body, 'utf8');
+    const res = await ch.sendFiles(spaceId, text, [file]);
+    // Attachment path failed (unsupported build, unreadable file): the trimmed
+    // text is still worth delivering on its own.
+    return res.ok ? res : ch.send(spaceId, text);
+  } catch {
+    return ch.send(spaceId, text);
+  }
+}
+
+/**
+ * Consume an inbound text as the answer to this space's open question./**
  * Consume an inbound text as the answer to this space's open question.
  *
  * Mirrors the Ask-Me tab's `sendAnswer` exactly: record the answer ON the card
  * (so the decision trail lives with the work it unblocked) and then inform boss
  * so he acts on it and unblocks. Returns true when the text was consumed.
  */
-async function answerOpenPhotonQuestion(m: PhotonInbound): Promise<boolean> {
+async function answerOpenPhotonQuestion(
+  m: PhotonInbound,
+  opts: { silent?: boolean } = {}
+): Promise<boolean> {
   const open = photonOpenQuestions().get(m.spaceId);
   if (!open) return false;
 
@@ -1876,26 +1903,46 @@ async function answerOpenPhotonQuestion(m: PhotonInbound): Promise<boolean> {
     body: m.text, kind: 'communication', decision: 'auto-allowed', taskId: card.id
   });
   notifyTriggerHistoryUpdated();
-  void photonChannel?.react(m.spaceId, m.messageId, '👍');
-  await photonChannel?.send(m.spaceId, 'Got it — passing that back to the team.');
+  if (!opts.silent) {
+    void photonChannel?.react(m.spaceId, m.messageId, '👍');
+    await photonChannel?.send(m.spaceId, 'got it');
+  }
   return true;
 }
 
-/** A tapback on an approval prompt. Routes into the identical function the
- *  Triggers tab's buttons call, so the two surfaces cannot drift. *//** A tapback on an approval prompt. Routes into the identical function the
- *  Triggers tab's buttons call, so the two surfaces cannot drift. */
+/**
+ * An inbound tapback.
+ *
+ * Tapbacks are for ANSWERING Rudy, not for authorising him — a message you sent
+ * is already the instruction, so asking you to approve it is asking you to
+ * confirm your own request. So a tapback on a question Rudy asked is a yes/no
+ * answer, and only a line explicitly running in 'strict' mode still uses one as
+ * an approval.
+ */
 async function handlePhotonReaction(r: PhotonReaction): Promise<void> {
-  const approve = PHOTON_APPROVE.has(r.emoji);
-  const reject = PHOTON_REJECT.has(r.emoji);
-  if (!approve && !reject) return;                 // 😂 on a prompt decides nothing
+  const yes = PHOTON_APPROVE.has(r.emoji);
+  const no = PHOTON_REJECT.has(r.emoji);
+  if (!yes && !no) return;                         // 😂 on a message decides nothing
+
+  // 1) Answering an open question — the common case.
+  const open = photonOpenQuestions().get(r.spaceId);
+  if (open && (!open.promptId || open.promptId === r.targetId)) {
+    await answerOpenPhotonQuestion({
+      text: yes ? 'yes' : 'no',
+      spaceId: r.spaceId,
+      messageId: r.targetId,
+      from: r.from
+    }, { silent: true });
+    await photonChannel?.send(r.spaceId, yes ? 'got it — yes' : 'got it — no');
+    return;
+  }
+
+  // 2) Legacy/strict approval of a held message.
   const entryId = photonEntryForPrompt(r.targetId);
-  if (!entryId) return;                            // not one of ours, or already decided
-  const next = decideTriggerEntry(entryId, approve ? 'approved' : 'rejected');
+  if (!entryId) return;
+  const next = decideTriggerEntry(entryId, yes ? 'approved' : 'rejected');
   if (!next) return;
-  await photonChannel?.send(
-    r.spaceId,
-    approve ? 'On it.' : 'Dropped — nothing will run.'
-  );
+  await photonChannel?.send(r.spaceId, yes ? 'on it' : 'dropped');
 }
 
 /* ── done-notifier (iMessage-origin card → done → one summary reply) ───────── */
@@ -2004,10 +2051,11 @@ async function pollPhotonCardUpdates(): Promise<void> {
       const open = openQuestionOf(t);
       if (open && qCount > prev.qCount) {
         if (photonMaySend(target.spaceId)) {
-          const { text } = formatForIMessage(`Needs you — ${t.title}\n\n${open.q}\n\nJust reply and I'll pass it back.`);
-          const res = await photonChannel.send(target.spaceId, text);
+          const res = await sendPhotonBody(target.spaceId, open.q);
           if (res.ok) {
-            photonOpenQuestions().set(target.spaceId, { taskId: t.id, q: open.q, askedAt: Date.now() });
+            photonOpenQuestions().set(target.spaceId, {
+              taskId: t.id, q: open.q, askedAt: Date.now(), promptId: res.messageId
+            });
             persistPhotonOpenQuestions();
             seen[t.id] = { status: t.status, qCount };
             dirty = true;
@@ -2034,8 +2082,7 @@ async function pollPhotonCardUpdates(): Promise<void> {
           notified.add(t.id); persistPhotonDoneNotified(notified);
           seen[t.id] = { status: t.status, qCount }; dirty = true; continue;
         }
-        const { text } = formatForIMessage(`Done — ${t.title}\n\n${body}`);
-        const res = await photonChannel.send(target.spaceId, text);
+        const res = await sendPhotonBody(target.spaceId, body);
         if (res.ok) {
           notified.add(t.id); persistPhotonDoneNotified(notified);
           seen[t.id] = { status: t.status, qCount }; dirty = true;
@@ -2054,18 +2101,18 @@ async function pollPhotonCardUpdates(): Promise<void> {
       // Progress transitions. Only worth a text when they change what the human
       // knows: work picked up, or work stalled on them.
       let line: string | null = null;
-      if (t.status === 'doing' && prev.status !== 'doing') line = `Working on it — ${t.title}`;
+      if (t.status === 'doing' && prev.status !== 'doing') line = 'on it';
       else if (t.status === 'blocked' && prev.status !== 'blocked') {
-        line = open ? `Needs you — ${t.title}\n\n${open.q}\n\nJust reply and I'll pass it back.`
-                    : `Stuck on — ${t.title}`;
+        line = open ? open.q : `stuck on "${t.title}"`;
       }
       if (!line) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
       if (!photonMaySend(target.spaceId)) continue;        // retry next tick
-      const { text } = formatForIMessage(line);
-      const res = await photonChannel.send(target.spaceId, text);
+      const res = await sendPhotonBody(target.spaceId, line);
       if (res.ok) {
         if (t.status === 'blocked' && open) {
-          photonOpenQuestions().set(target.spaceId, { taskId: t.id, q: open.q, askedAt: Date.now() });
+          photonOpenQuestions().set(target.spaceId, {
+            taskId: t.id, q: open.q, askedAt: Date.now(), promptId: res.messageId
+          });
           persistPhotonOpenQuestions();
         }
         seen[t.id] = { status: t.status, qCount };
@@ -2110,9 +2157,11 @@ async function startPhotonReplyServer(): Promise<void> {
   const token = randomBytes(24).toString('hex');
   photonReplyServer = new PhotonReplyServer({
     token,
-    send: async (spaceId, text) => photonChannel
-      ? photonChannel.send(spaceId, text)
-      : { ok: false, error: 'iMessage channel not running' },
+    send: async (spaceId, text, files) => {
+      if (!photonChannel) return { ok: false, error: 'iMessage channel not running' };
+      if (files && files.length > 0) return photonChannel.sendFiles(spaceId, text, files);
+      return photonChannel.send(spaceId, text);
+    },
     onReplied: (taskId) => { photonRepliedTasks.add(taskId); }
   });
   const r = await photonReplyServer.start();
@@ -2144,14 +2193,21 @@ function stopPhotonReplyServer(): void {
  * routing/autonomy/report rules are the same; the OUTPUT contract is not.
  */
 function buildPhotonRequestProtocol(spaceId: string, taskId: string): string {
-  return `[AUTONOMOUS REQUEST PROTOCOL: this request arrived by text message; no interactive human is watching a screen] Handle it under this protocol:
-1. ROUTE FAST, triage and hand this to the single most-relevant agent right away. CHECK THE LIVE ROSTER FIRST (active agents in registry.json + their state in fleet.json) and prefer an EXISTING agent that fits. Don't sit on it.
-2. DELEGATE WITH THE REPLY HANDLE, tell that agent to do the work autonomously AND to text its result back itself when done, using exactly: "${hive.nodeCommand()}" "${photonReplyScriptPath()}" --space ${spaceId} --task ${taskId} --text "<substantive result>" (that first path is the harness's bundled Node, already resolved for this machine, pass it verbatim; bare "node" is not on the hook/agent PATH on many machines.)
-3. AUTONOMOUS EXECUTION, no interactive questions. PAUSE/ask ONLY for high-severity actions: pushing to main or any remote; buying or spawning infrastructure or paid services; deleting an existing repo, file, or folder it did not create.
-4. WRITE FOR A PHONE. iMessage has NO formatting — asterisks, backticks and :emoji_codes: show up as literal characters. Send PLAIN SENTENCES. Lead with the outcome in one line, then at most a few short lines of specifics. No markdown, no code fences, no bullet characters, and NEVER a bare "done".
-5. REPORT TO BOSS, the agent then tells you (Rudy) what it did.
-6. ASYNC QUESTIONS, if a decision is genuinely needed, don't block: text the question with numbered options via that reply command, and record {q, options, askedAt (ISO + day & time), spaceId ${spaceId}} so the texted answer correlates back and resumes.
-The user's message starts now: `;
+  const cmd = `"${hive.nodeCommand()}" "${photonReplyScriptPath()}" --space ${spaceId} --task ${taskId}`;
+  return `[THIS ARRIVED BY TEXT MESSAGE. No one is watching a screen — they are on their phone.]
+1. ROUTE IT NOW. Check the live roster (registry.json + fleet.json) and hand this to the agent that already fits; only spawn one if nothing does. Don't sit on it.
+2. THE AGENT TEXTS BACK ITSELF when done: ${cmd} --text "<answer>"
+   To send a file, image, chart or screenshot, add --file <absolute path> (repeatable). A picture or the actual diff is usually the answer — send it rather than describing it.
+3. WRITE LIKE A PERSON TEXTING, NOT A REPORT. This is the single most important rule:
+   - One or two short sentences. Usually one. Lead with the answer.
+   - Lowercase, contractions, plain words. "deployed, took 4 min" not "Deployment completed successfully."
+   - NO markdown, NO asterisks, NO backticks, NO :emoji_codes:, NO bullet lists, NO headings — iMessage shows them as literal junk characters.
+   - Don't restate the question, don't preamble, don't sign off, don't say "I have completed". Never a bare "done".
+   - Long output (logs, diffs, files) goes in --file, not in the message body.
+4. WORK AUTONOMOUSLY. No interactive questions. Pause only for: pushing to a remote, spending money, or deleting something you did not create.
+5. IF YOU GENUINELY NEED A DECISION, ask ONE short question via the reply command and set the card to blocked with the question in humanQA. They can reply in a sentence, or just thumbs-up/thumbs-down it. Then continue.
+6. TELL RUDY what you did afterwards.
+Their message: `;
 }
 
 /** Open the iMessage channel from the current config. No port, no tunnel — this
@@ -2303,7 +2359,14 @@ function photonEntryForPrompt(promptId: string): string | undefined {
  *  a space has an open question, the user's next plain text is read as the ANSWER
  *  to it rather than as a new task. Persisted, because a blocked card can easily
  *  outlive an app restart and the human shouldn't have to know that. */
-interface PhotonOpenQuestion { taskId: string; q: string; askedAt: number }
+interface PhotonOpenQuestion {
+  taskId: string;
+  q: string;
+  askedAt: number;
+  /** Id of the message we asked in. A tapback ON THIS is a yes/no answer —
+   *  which is what tapbacks are for here: answering Rudy, not authorising him. */
+  promptId?: string;
+}
 let photonQuestions: Map<string, PhotonOpenQuestion> | null = null;
 const PHOTON_QUESTIONS_KV_KEY = 'triggers.photon.openQuestions';
 

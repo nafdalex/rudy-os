@@ -351,8 +351,11 @@ export interface HarnessConfig {
    *  request signature, so this list is the ENTIRE security boundary — an empty
    *  list means nobody, and the channel refuses to open. */
   photonAllowlist?: string[];
-  /** Gate applied to inbound texts. Defaults to 'strict': every directive waits
-   *  for a 👍 tapback rather than running on arrival. */
+  /** Gate applied to inbound texts. Defaults to 'allow-all': texting the office
+   *  IS the instruction to do the work, so a message queues on arrival rather
+   *  than asking the sender to approve their own request. The allowlist — not
+   *  this gate — is what keeps strangers out. Set 'strict' to require a tapback
+   *  on every directive. */
   photonTriggerMode?: TriggerMode;
 
   // ─── Free Flow (voice dictation → message queue) ───────────────────────────
@@ -470,7 +473,7 @@ const DEFAULTS: HarnessConfig = {
   photonEnabled: false,
   photonProjectId: undefined,
   photonAllowlist: [],
-  photonTriggerMode: DEFAULT_TRIGGER_MODE,
+  photonTriggerMode: 'allow-all',
   freeflowEnabled: true,
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',

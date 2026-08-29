@@ -1749,6 +1749,23 @@ function photonSecretRef(): string {
  * that pairing is the whole approval mechanism.
  */
 async function handlePhotonMessage(m: PhotonInbound): Promise<void> {
+  // A space that owes an answer consumes the next plain text AS that answer.
+  // Checked before the trigger gate on purpose: answering "use the staging DB"
+  // is not a new directive, and running it through classifyInboundKind would
+  // both mis-file it and ask the human to approve their own reply.
+  if (await answerOpenPhotonQuestion(m)) return;
+
+  // "..." while we decide. Paired with the read receipt above it, the human gets
+  // the same two signals any human correspondent would give them: seen, thinking.
+  void photonChannel?.typing(m.spaceId, true);
+  try {
+    await routePhotonMessage(m);
+  } finally {
+    void photonChannel?.typing(m.spaceId, false);
+  }
+}
+
+async function routePhotonMessage(m: PhotonInbound): Promise<void> {
   const cfg = readConfig();
   const mode: TriggerMode = cfg.photonTriggerMode ?? DEFAULT_TRIGGER_MODE;
   const kind: InboundKind = classifyInboundKind(m.text);
@@ -1805,7 +1822,67 @@ async function handlePhotonMessage(m: PhotonInbound): Promise<void> {
   void photonChannel?.react(m.spaceId, m.messageId, '👍');
 }
 
+/**
+ * Consume an inbound text as the answer to this space's open question.
+ *
+ * Mirrors the Ask-Me tab's `sendAnswer` exactly: record the answer ON the card
+ * (so the decision trail lives with the work it unblocked) and then inform boss
+ * so he acts on it and unblocks. Returns true when the text was consumed.
+ */
+async function answerOpenPhotonQuestion(m: PhotonInbound): Promise<boolean> {
+  const open = photonOpenQuestions().get(m.spaceId);
+  if (!open) return false;
+
+  let tasks: HiveTask[];
+  try {
+    const ledger = hive.tasks() as { tasks?: HiveTask[] };
+    tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
+  } catch { return false; }
+  const card = tasks.find((t) => t.id === open.taskId);
+  // The card vanished (deleted, or aged out): drop the question rather than
+  // swallowing the user's text into nothing.
+  if (!card) {
+    photonOpenQuestions().delete(m.spaceId);
+    persistPhotonOpenQuestions();
+    return false;
+  }
+
+  const qa = (card.humanQA ?? []).map((e) =>
+    e.q === open.q && !e.a ? { ...e, a: m.text, answeredAt: new Date().toISOString() } : e
+  );
+  try { hive.patchTask(card.id, { humanQA: qa }); }
+  catch (e) { console.error('[photon] could not record answer:', e); return false; }
+
+  try {
+    hive.send({
+      to: 'boss',
+      act: 'inform',
+      subject: `HUMAN ANSWER on task "${card.title}"`,
+      body: [
+        `The human answered by iMessage on task ${card.id} ("${card.title}"):`,
+        `Q: ${open.q}`,
+        `A: ${m.text}`,
+        "The answer is also recorded in the card's humanQA. Act on it, unblock the card, and continue the work.",
+        `Reply to them with: "${hive.nodeCommand()}" "${photonReplyScriptPath()}" --space ${m.spaceId} --task ${card.id} --text "<your message>"`
+      ].join('\n')
+    }, 'human');
+  } catch (e) { console.error('[photon] could not route answer to boss:', e); }
+
+  photonOpenQuestions().delete(m.spaceId);
+  persistPhotonOpenQuestions();
+  appendTriggerHistory({
+    source: 'imessage', sourceId: 'photon', sourceName: 'iMessage',
+    direction: 'inbound', peer: m.from, title: `Answer: ${open.q.slice(0, 60)}`,
+    body: m.text, kind: 'communication', decision: 'auto-allowed', taskId: card.id
+  });
+  notifyTriggerHistoryUpdated();
+  void photonChannel?.react(m.spaceId, m.messageId, '👍');
+  await photonChannel?.send(m.spaceId, 'Got it — passing that back to the team.');
+  return true;
+}
+
 /** A tapback on an approval prompt. Routes into the identical function the
+ *  Triggers tab's buttons call, so the two surfaces cannot drift. *//** A tapback on an approval prompt. Routes into the identical function the
  *  Triggers tab's buttons call, so the two surfaces cannot drift. */
 async function handlePhotonReaction(r: PhotonReaction): Promise<void> {
   const approve = PHOTON_APPROVE.has(r.emoji);
@@ -1826,7 +1903,6 @@ async function handlePhotonReaction(r: PhotonReaction): Promise<void> {
 let photonDoneTimer: ReturnType<typeof setInterval> | null = null;
 let photonDonePolling = false;
 let photonDoneNotified: Set<string> | null = null;
-let photonDoneBaseline: Set<string> | null = null;
 
 function photonDoneNotifiedPath(): string {
   return join(app.getPath('userData'), 'photon-done-notified.json');
@@ -1845,10 +1921,63 @@ function persistPhotonDoneNotified(set: Set<string>): void {
   catch (e) { console.error('[photon] could not persist done-notify ledger:', e); }
 }
 
-/** One observation pass over the kanban. Mirrors `pollSlackDoneTasks`, including
- *  its mark-on-success discipline: the ledger entry is written only after a reply
- *  actually landed, so a crash mid-loop cannot double-post. */
-async function pollPhotonDoneTasks(): Promise<void> {
+/** Per-card memory of what we last told the user about, so a tick only reports
+ *  CHANGE. Statuses and question counts only — never a message body. */
+interface PhotonCardSeen { status: string; qCount: number }
+let photonCardSeen: Record<string, PhotonCardSeen> | null = null;
+
+function photonCardSeenPath(): string {
+  return join(app.getPath('userData'), 'photon-card-seen.json');
+}
+
+function loadPhotonCardSeen(): Record<string, PhotonCardSeen> {
+  try {
+    const raw = JSON.parse(readFileSync(photonCardSeenPath(), 'utf8'));
+    if (raw && typeof raw === 'object') return raw as Record<string, PhotonCardSeen>;
+  } catch { /* missing/corrupt → start empty */ }
+  return {};
+}
+
+function persistPhotonCardSeen(state: Record<string, PhotonCardSeen>): void {
+  try { writeFileSync(photonCardSeenPath(), JSON.stringify(state)); }
+  catch (e) { console.error('[photon] could not persist card-seen ledger:', e); }
+}
+
+/** Last unsolicited send per space. A runaway agent flipping a card between
+ *  statuses must not be able to machine-gun somebody's phone. */
+const photonLastSentAt = new Map<string, number>();
+const PHOTON_MIN_GAP_MS = 15_000;
+
+function photonMaySend(spaceId: string): boolean {
+  const last = photonLastSentAt.get(spaceId) ?? 0;
+  if (Date.now() - last < PHOTON_MIN_GAP_MS) return false;
+  photonLastSentAt.set(spaceId, Date.now());
+  return true;
+}
+
+/** The newest question on a card the human has not answered yet. */
+function openQuestionOf(t: HiveTask): { q: string } | undefined {
+  const qa = t.humanQA ?? [];
+  for (let i = qa.length - 1; i >= 0; i--) {
+    if (qa[i]?.q && !qa[i]?.a && !qa[i]?.dismissedAt) return { q: qa[i].q };
+  }
+  return undefined;
+}
+
+/**
+ * One observation pass over the kanban, reporting every change worth a text —
+ * not just completion.
+ *
+ * The Slack notifier only ever fires on `done`, which is fine at a desk where
+ * the board is on screen. On a phone the board is invisible, so silence between
+ * "queued" and "finished" reads as nothing happening. This reports the
+ * transitions a human actually cares about: work started, work needs them, work
+ * finished.
+ *
+ * A card is BASELINED the first time it is seen and reports nothing, so enabling
+ * the channel (or restarting) never backfills a history of texts.
+ */
+async function pollPhotonCardUpdates(): Promise<void> {
   if (photonDonePolling) return;
   if (!photonChannel?.isRunning()) return;
   let tasks: HiveTask[];
@@ -1857,45 +1986,93 @@ async function pollPhotonDoneTasks(): Promise<void> {
     tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
   } catch { return; } // unreadable/missing tasks.json → skip this tick
   const notified = photonDoneNotified ?? (photonDoneNotified = loadPhotonDoneNotified());
-
-  // First tick seeds the baseline and posts nothing, so enabling the channel
-  // can't dump a summary for every card that was already finished.
-  if (photonDoneBaseline === null) {
-    photonDoneBaseline = new Set(tasks.filter((t) => t.status === 'done').map((t) => t.id));
-    return;
-  }
-  const baseline = photonDoneBaseline;
+  const seen = photonCardSeen ?? (photonCardSeen = loadPhotonCardSeen());
 
   photonDonePolling = true;
   try {
+    let dirty = false;
     for (const t of tasks) {
-      if (t.status !== 'done') continue;
       const target = t.photon;
-      if (!target?.spaceId) continue;                       // non-iMessage card → leave alone
-      if (notified.has(t.id) || baseline.has(t.id)) continue;
-      if (photonRepliedTasks.has(t.id)) { notified.add(t.id); persistPhotonDoneNotified(notified); continue; }
-      const body = (t.result ?? t.description ?? '').trim();
-      // Never send a bare "done" — if there's no substance, stay quiet.
-      if (!body) { notified.add(t.id); persistPhotonDoneNotified(notified); continue; }
-      const { text } = formatForIMessage(`${t.title}\n\n${body}`);
-      const res = await photonChannel.send(target.spaceId, text);
-      if (res.ok) {
-        notified.add(t.id);
-        persistPhotonDoneNotified(notified);
-      } else {
-        // Transient by default — leave unmarked so a later tick retries. The one
-        // permanent case is a space we can no longer address (e.g. the stream
-        // reconnected after a restart and never saw this conversation again);
-        // retrying that forever would spin every 5s until the app quits.
-        if (res.error?.startsWith('no live handle')) {
-          notified.add(t.id);
-          persistPhotonDoneNotified(notified);
+      if (!target?.spaceId) continue;                      // non-iMessage card → leave alone
+      const qCount = (t.humanQA ?? []).length;
+      const prev = seen[t.id];
+
+      // First sight: remember where it stands, say nothing.
+      if (!prev) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+
+      // A new question outranks a status change — it is the one that needs them.
+      const open = openQuestionOf(t);
+      if (open && qCount > prev.qCount) {
+        if (photonMaySend(target.spaceId)) {
+          const { text } = formatForIMessage(`Needs you — ${t.title}\n\n${open.q}\n\nJust reply and I'll pass it back.`);
+          const res = await photonChannel.send(target.spaceId, text);
+          if (res.ok) {
+            photonOpenQuestions().set(target.spaceId, { taskId: t.id, q: open.q, askedAt: Date.now() });
+            persistPhotonOpenQuestions();
+            seen[t.id] = { status: t.status, qCount };
+            dirty = true;
+          }
+        }
+        continue;
+      }
+
+      if (t.status === prev.status) { 
+        if (qCount !== prev.qCount) { seen[t.id] = { status: t.status, qCount }; dirty = true; }
+        continue;
+      }
+
+      if (t.status === 'done') {
+        // Exactly-once, mark-on-success — unchanged from the original notifier.
+        if (notified.has(t.id)) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+        if (photonRepliedTasks.has(t.id)) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true; continue;
+        }
+        const body = (t.result ?? t.description ?? '').trim();
+        // Never send a bare "done" — if there's no substance, stay quiet.
+        if (!body) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true; continue;
+        }
+        const { text } = formatForIMessage(`Done — ${t.title}\n\n${body}`);
+        const res = await photonChannel.send(target.spaceId, text);
+        if (res.ok) {
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true;
+        } else if (res.error?.startsWith('no live handle')) {
+          // Permanently undeliverable this session (the stream reconnected and
+          // never saw this conversation again); burn it rather than spin.
+          notified.add(t.id); persistPhotonDoneNotified(notified);
+          seen[t.id] = { status: t.status, qCount }; dirty = true;
           console.error('[photon] done-summary for task', t.id, 'undeliverable (space not addressable this session); giving up');
         } else {
           console.error('[photon] done-summary post failed for task', t.id, '-', res.error, '(will retry)');
         }
+        continue;
+      }
+
+      // Progress transitions. Only worth a text when they change what the human
+      // knows: work picked up, or work stalled on them.
+      let line: string | null = null;
+      if (t.status === 'doing' && prev.status !== 'doing') line = `Working on it — ${t.title}`;
+      else if (t.status === 'blocked' && prev.status !== 'blocked') {
+        line = open ? `Needs you — ${t.title}\n\n${open.q}\n\nJust reply and I'll pass it back.`
+                    : `Stuck on — ${t.title}`;
+      }
+      if (!line) { seen[t.id] = { status: t.status, qCount }; dirty = true; continue; }
+      if (!photonMaySend(target.spaceId)) continue;        // retry next tick
+      const { text } = formatForIMessage(line);
+      const res = await photonChannel.send(target.spaceId, text);
+      if (res.ok) {
+        if (t.status === 'blocked' && open) {
+          photonOpenQuestions().set(target.spaceId, { taskId: t.id, q: open.q, askedAt: Date.now() });
+          persistPhotonOpenQuestions();
+        }
+        seen[t.id] = { status: t.status, qCount };
+        dirty = true;
       }
     }
+    if (dirty) persistPhotonCardSeen(seen);
   } finally {
     photonDonePolling = false;
   }
@@ -1904,13 +2081,11 @@ async function pollPhotonDoneTasks(): Promise<void> {
 function startPhotonDoneObserver(): void {
   if (photonDoneTimer) return;
   photonDoneNotified = loadPhotonDoneNotified();
-  photonDoneBaseline = null; // re-seed on the first tick of this session
-  photonDoneTimer = setInterval(() => { void pollPhotonDoneTasks(); }, 5000);
+  photonDoneTimer = setInterval(() => { void pollPhotonCardUpdates(); }, 5000);
 }
 
 function stopPhotonDoneObserver(): void {
   if (photonDoneTimer) { clearInterval(photonDoneTimer); photonDoneTimer = null; }
-  photonDoneBaseline = null;
 }
 
 /* ── agent-facing reply path ───────────────────────────────────────────────── */
@@ -2122,7 +2297,34 @@ function photonEntryForPrompt(promptId: string): string | undefined {
   return undefined;
 }
 
+/** spaceId → the open question that space owes an answer to.
+ *
+ *  This is what turns the channel from a command line into a CONVERSATION: while
+ *  a space has an open question, the user's next plain text is read as the ANSWER
+ *  to it rather than as a new task. Persisted, because a blocked card can easily
+ *  outlive an app restart and the human shouldn't have to know that. */
+interface PhotonOpenQuestion { taskId: string; q: string; askedAt: number }
+let photonQuestions: Map<string, PhotonOpenQuestion> | null = null;
+const PHOTON_QUESTIONS_KV_KEY = 'triggers.photon.openQuestions';
+
+function photonOpenQuestions(): Map<string, PhotonOpenQuestion> {
+  if (photonQuestions) return photonQuestions;
+  let stored: Record<string, PhotonOpenQuestion> | undefined;
+  try { stored = persist.getKv<Record<string, PhotonOpenQuestion>>(PHOTON_QUESTIONS_KV_KEY); }
+  catch { stored = undefined; }
+  const entries = stored && typeof stored === 'object' ? Object.entries(stored) : [];
+  photonQuestions = new Map(entries.filter((e): e is [string, PhotonOpenQuestion] =>
+    !!e[1] && typeof e[1].taskId === 'string' && typeof e[1].q === 'string'));
+  return photonQuestions;
+}
+
+function persistPhotonOpenQuestions(): void {
+  try { persist.setKv(PHOTON_QUESTIONS_KV_KEY, Object.fromEntries(photonOpenQuestions())); }
+  catch (e) { console.error('[photon] could not persist open-question map:', e); }
+}
+
 /** Drop targets whose history entry has aged out of the capped ledger. Mirrors
+ *  `pruneHeldTokens`; without it a long-lived install leaks one row per text. *//** Drop targets whose history entry has aged out of the capped ledger. Mirrors
  *  `pruneHeldTokens`; without it a long-lived install leaks one row per text. */
 function prunePhotonPendingTargets(): void {
   const map = photonPendingTargets();

@@ -50,6 +50,8 @@ export interface PhotonSpace {
   readonly id: string;
   send(content: unknown): Promise<{ readonly id: string } | undefined>;
   responding<T>(fn: () => T | Promise<T>): Promise<T>;
+  startTyping(): Promise<void>;
+  stopTyping(): Promise<void>;
 }
 
 export interface PhotonMessageContent {
@@ -67,11 +69,29 @@ export interface PhotonMessage {
   space: PhotonSpace;
   direction: 'inbound' | 'outbound';
   react(emoji: string): Promise<unknown>;
+  /** Mark this message (and the chat up to it) read — the blue "Read" line on
+   *  the sender's phone. Fire-and-forget; only valid on inbound messages. */
+  read(): Promise<void>;
 }
 
 interface SpectrumApp {
   readonly messages: AsyncIterable<[PhotonSpace, PhotonMessage]>;
   stop(): Promise<void>;
+}
+
+/** The platform-narrowed instance, obtained as `imessage(app)`.
+ *
+ *  This is the ONLY route to a space we have not received a message on: the
+ *  bare `app` has no space accessor (`app.imessage` is an event-stream proxy,
+ *  not a namespace). Without it the channel can only ever reply, which makes a
+ *  done-notification undeliverable after a restart and makes it impossible for
+ *  the office to start a conversation at all. */
+interface PhotonPlatform {
+  user(id: string): Promise<unknown>;
+  space: {
+    get(id: string): Promise<PhotonSpace>;
+    create(user: unknown): Promise<PhotonSpace>;
+  };
 }
 
 /* ─────────────────────────────── public types ────────────────────────────── */
@@ -225,6 +245,7 @@ export class PhotonChannel {
   /** Spaces we have heard from this session, so a reply can address them without
    *  a round trip. Keyed by space id. */
   private readonly spaces = new Map<string, PhotonSpace>();
+  private platform: PhotonPlatform | null = null;
   private reconnectDelay = RECONNECT_BASE_MS;
 
   constructor(private readonly opts: PhotonChannelOptions) {}
@@ -267,13 +288,16 @@ export class PhotonChannel {
       Spectrum: (o: Record<string, unknown>) => Promise<SpectrumApp>;
     };
     const { imessage } = (await import('spectrum-ts/providers/imessage')) as unknown as {
-      imessage: { config: () => unknown };
+      imessage: ((app: unknown) => PhotonPlatform) & { config: () => unknown };
     };
     this.app = await Spectrum({
       projectId: this.opts.projectId,
       projectSecret: secret,
       providers: [imessage.config()]
     });
+    // Narrow to the iMessage platform for space resolution (see PhotonPlatform).
+    try { this.platform = imessage(this.app); }
+    catch (e) { console.error('[photon] platform narrowing failed:', errMsg(e)); this.platform = null; }
     return { ok: true };
   }
 
@@ -282,6 +306,7 @@ export class PhotonChannel {
     this.running = false;
     const app = this.app;
     this.app = null;
+    this.platform = null;
     this.spaces.clear();
     if (app) {
       try { await app.stop(); } catch { /* already gone */ }
@@ -336,6 +361,14 @@ export class PhotonChannel {
     if (!isAllowed(sender, this.opts.allowlist)) return;
     if (this.seen.seen(message.id)) return;        // at-least-once → dedupe
 
+    // Read receipt. Sent as soon as the message is ACCEPTED — not when the work
+    // finishes — because that is what it actually means: the office has the
+    // message. Deliberately after the allowlist check, so a stranger never gets
+    // a read receipt confirming a human-like reader is on the other end.
+    // Fire-and-forget: a platform that doesn't support receipts must not break
+    // ingestion.
+    void message.read().catch(() => { /* receipts are best-effort */ });
+
     const content = message.content;
     if (content.type === 'reaction') {
       const targetId = content.target?.id;
@@ -359,9 +392,47 @@ export class PhotonChannel {
     });
   }
 
+  /**
+   * A usable Space for an id, from the session cache or resolved fresh.
+   *
+   * The cache only ever holds conversations heard from THIS session, so without
+   * the resolve fallback every outbound would die after a restart — precisely
+   * when a long-running task finally reports back.
+   */
+  private async resolveSpace(spaceId: string): Promise<PhotonSpace | null> {
+    const cached = this.spaces.get(spaceId);
+    if (cached) return cached;
+    if (!this.platform) return null;
+    try {
+      const space = await this.platform.space.get(spaceId);
+      if (space) this.spaces.set(spaceId, space);
+      return space ?? null;
+    } catch (e) {
+      console.error('[photon] could not resolve space', spaceId, '-', errMsg(e));
+      return null;
+    }
+  }
+
+  /**
+   * Start a conversation with a handle we have never heard from — the outbound
+   * -first path (a scheduled report, or an alert nobody asked for yet).
+   */
+  async sendToHandle(handle: string, text: string): Promise<PhotonSendResult> {
+    if (!this.platform) return { ok: false, error: 'platform unavailable' };
+    try {
+      const user = await this.platform.user(handle);
+      const space = await this.platform.space.create(user);
+      this.spaces.set(space.id, space);
+      const sent = await space.send(text);
+      return { ok: true, messageId: sent?.id };
+    } catch (e) {
+      return { ok: false, error: errMsg(e) };
+    }
+  }
+
   /** Send text into a space. Never rejects. */
   async send(spaceId: string, text: string): Promise<PhotonSendResult> {
-    const space = this.spaces.get(spaceId);
+    const space = await this.resolveSpace(spaceId);
     if (!space) return { ok: false, error: `no live handle for space ${spaceId}` };
     try {
       const sent = await space.send(text);
@@ -373,15 +444,24 @@ export class PhotonChannel {
 
   /** Show a typing indicator for the duration of `fn`. Best-effort. */
   async responding<T>(spaceId: string, fn: () => T | Promise<T>): Promise<T> {
-    const space = this.spaces.get(spaceId);
+    const space = await this.resolveSpace(spaceId);
     if (!space) return fn();
     try { return await space.responding(fn); }
     catch { return fn(); }
   }
 
+  /** Turn the typing indicator on or off for a space. Best-effort: an indicator
+   *  that fails to appear must never stop the work it was describing. */
+  async typing(spaceId: string, on: boolean): Promise<void> {
+    const space = await this.resolveSpace(spaceId);
+    if (!space) return;
+    try { await (on ? space.startTyping() : space.stopTyping()); }
+    catch { /* indicator is cosmetic */ }
+  }
+
   /** Place a tapback on a message we have a live handle for. Never rejects. */
   async react(spaceId: string, messageId: string, emoji: string): Promise<PhotonSendResult> {
-    const space = this.spaces.get(spaceId);
+    const space = await this.resolveSpace(spaceId);
     if (!space) return { ok: false, error: `no live handle for space ${spaceId}` };
     try {
       // `space.getMessage` is the documented way to act on a message known only

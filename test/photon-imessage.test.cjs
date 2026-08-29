@@ -32,6 +32,10 @@ const loadTs = require('./load-ts.cjs');
 /* ── stub the ESM SDK before the module under test dynamically imports it ──── */
 
 const sent = [];
+/** Space ids the stubbed platform will resolve for a cold send. */
+const resolvableSpaces = new Set();
+const readLog = [];
+const typingLog = [];
 let inboundQueue = [];
 
 /** A fake space that records what was sent into it. */
@@ -40,6 +44,8 @@ function makeSpace(id) {
     id,
     send: async (text) => { sent.push({ spaceId: id, text }); return { id: `sent-${sent.length}` }; },
     responding: async (fn) => fn(),
+    startTyping: async () => { typingLog.push([id, true]); },
+    stopTyping: async () => { typingLog.push([id, false]); },
     getMessage: async (mid) => ({ id: mid, react: async () => {} })
   };
 }
@@ -55,7 +61,8 @@ function msg({ id, text, sender, spaceId = 'space-1', reaction }) {
     content: reaction
       ? { type: 'reaction', emoji: reaction.emoji, target: { id: reaction.targetId } }
       : { type: 'text', text },
-    react: async () => {}
+    react: async () => {},
+    read: async () => { readLog.push(id); }
   };
 }
 
@@ -80,7 +87,20 @@ for (const spec of ['spectrum-ts', 'spectrum-ts/providers/imessage']) {
     filename: resolved,
     loaded: true,
     exports: spec.endsWith('imessage')
-      ? { imessage: { config: () => ({}) } }
+      ? {
+          // `imessage` is BOTH a config factory and the platform-narrowing
+          // callable — imessage(app) is the only route to space resolution.
+          imessage: Object.assign(
+            () => ({
+              user: async (h) => ({ id: h }),
+              space: {
+                get: async (id) => (resolvableSpaces.has(id) ? makeSpace(id) : null),
+                create: async (u) => makeSpace(`any;-;${u.id}`)
+              }
+            }),
+            { config: () => ({}) }
+          )
+        }
       : { Spectrum: async () => stubApp }
   };
 }
@@ -98,6 +118,9 @@ const ALLOWED = '+1 (555) 123-4567';
 async function makeChannel(queue, allowlist = [ALLOWED]) {
   inboundQueue = queue;
   sent.length = 0;
+  readLog.length = 0;
+  typingLog.length = 0;
+  resolvableSpaces.clear();
   const inbound = [];
   const reactions = [];
   const ch = new PhotonChannel({
@@ -229,4 +252,73 @@ test('a single unbroken line longer than the budget still truncates', () => {
   const { text, overflow } = formatForIMessage('x'.repeat(500), 100);
   assert.ok(text.length < 500, 'a body with no line breaks must still be cut');
   assert.ok(overflow && overflow.length > 0);
+});
+
+/* ───────────────────────────── read receipts ─────────────────────────────── */
+
+test('an accepted message is marked read', async () => {
+  const { ch } = await makeChannel([msg({ id: 'm1', text: 'status?', sender: '+15551234567' })]);
+  assert.deepEqual(readLog, ['m1'], 'the sender should see a read receipt once we have the message');
+  await ch.stop();
+});
+
+test('a stranger never gets a read receipt', async () => {
+  const { ch } = await makeChannel([msg({ id: 'm1', text: 'who is this', sender: '+15559999999' })]);
+  assert.deepEqual(readLog, [], 'a receipt would confirm a real reader is on the other end');
+  await ch.stop();
+});
+
+test('a duplicate delivery is not re-marked read', async () => {
+  const { ch } = await makeChannel([
+    msg({ id: 'dup', text: 'ship it', sender: '+15551234567' }),
+    msg({ id: 'dup', text: 'ship it', sender: '+15551234567' })
+  ]);
+  assert.deepEqual(readLog, ['dup'], 'dedupe must gate receipts too');
+  await ch.stop();
+});
+
+/* ────────────────────────────── typing control ───────────────────────────── */
+
+test('typing can be turned on and off for a known space', async () => {
+  const { ch } = await makeChannel([msg({ id: 'm1', text: 'hi', sender: '+15551234567' })]);
+  await ch.typing('space-1', true);
+  await ch.typing('space-1', false);
+  assert.deepEqual(typingLog, [['space-1', true], ['space-1', false]]);
+  await ch.stop();
+});
+
+test('typing on an unknown space is a no-op, not a throw', async () => {
+  const { ch } = await makeChannel([msg({ id: 'm1', text: 'hi', sender: '+15551234567' })]);
+  await ch.typing('never-seen', true);          // must not reject
+  assert.equal(typingLog.some(([s]) => s === 'never-seen'), false);
+  await ch.stop();
+});
+
+/* ─────────────────── outbound without a prior inbound ────────────────────── */
+
+test('a send resolves a space it never received a message on', async () => {
+  // The exact restart case: a long task finishes and reports back in a session
+  // that never saw the original text.
+  const { ch } = await makeChannel([]);
+  resolvableSpaces.add('any;-;+15551234567');
+  const res = await ch.send('any;-;+15551234567', 'done');
+  assert.equal(res.ok, true, 'a cold space must resolve, or every post-restart reply is lost');
+  assert.equal(sent.at(-1).text, 'done');
+  await ch.stop();
+});
+
+test('an unresolvable space fails cleanly instead of throwing', async () => {
+  const { ch } = await makeChannel([]);
+  const res = await ch.send('any;-;+15550000000', 'hello');
+  assert.equal(res.ok, false);
+  assert.match(res.error, /no live handle/);
+  await ch.stop();
+});
+
+test('the office can open a conversation from a bare handle', async () => {
+  const { ch } = await makeChannel([]);
+  const res = await ch.sendToHandle('+15551234567', 'first contact');
+  assert.equal(res.ok, true, 'outbound-first must work with no inbound history');
+  assert.equal(sent.at(-1).spaceId, 'any;-;+15551234567');
+  await ch.stop();
 });

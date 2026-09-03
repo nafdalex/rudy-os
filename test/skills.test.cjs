@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
-const { parseCatalogMarkdown, parseSkillFrontmatter } = loadTs('src/main/skills.ts');
+const { parseCatalogMarkdown, parseSkillFrontmatter, mergeCatalogs } = loadTs('src/main/skills.ts');
 
 const MD = [
   '## 📈 Overview',
@@ -89,4 +89,46 @@ test('SKILL.md frontmatter reads a multi-line block description whole', () => {
 test('inline frontmatter description and absent frontmatter both behave', () => {
   assert.equal(parseSkillFrontmatter('---\nname: x\ndescription: one liner\n---').description, 'one liner');
   assert.deepEqual(parseSkillFrontmatter('# no frontmatter'), {});
+});
+
+/* ── Multiple sources ───────────────────────────────────────────────────────
+ *
+ * Browse merges a curated README with repositories whose own folders are the
+ * skills. The failure that would be SILENT here is a source quietly erasing
+ * another's rows, or the same skill listed twice because two lists carry it.
+ */
+
+const row = (name, url, extra = {}) => ({
+  name, url, description: `${name} does things`, category: 'Skills', owner: 'someone', ...extra
+});
+
+test('sources merge in declared order and keep every distinct skill', () => {
+  const merged = mergeCatalogs([
+    [row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx')],
+    [row('greploop', 'https://github.com/michaelshimeles/skills/tree/main/greploop')]
+  ]);
+  assert.deepEqual(merged.map((s) => s.name), ['docx', 'greploop']);
+});
+
+test('the same skill in two sources yields one row, first source winning', () => {
+  const url = 'https://github.com/michaelshimeles/skills/tree/main/greploop';
+  const merged = mergeCatalogs([
+    [row('greploop', url, { category: 'Engineering workflow' })],
+    [row('GrepLoop', url, { category: 'Other' })]
+  ]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].category, 'Engineering workflow');
+});
+
+test('same name at a different url is a different skill, not a duplicate', () => {
+  const merged = mergeCatalogs([
+    [row('pdf', 'https://github.com/anthropics/skills/tree/main/skills/pdf')],
+    [row('pdf', 'https://github.com/someone-else/skills/tree/main/pdf')]
+  ]);
+  assert.equal(merged.length, 2);
+});
+
+test('an empty source cannot erase the sources around it', () => {
+  const merged = mergeCatalogs([[], [row('docx', 'https://github.com/a/b/tree/main/docx')], []]);
+  assert.deepEqual(merged.map((s) => s.name), ['docx']);
 });

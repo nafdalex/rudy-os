@@ -151,11 +151,46 @@ export function listLocalSkills(opts: { cwds: string[]; bundledDir: string | nul
   return [...best.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-const CATALOG_URL =
-  'https://raw.githubusercontent.com/abubakarsiddik31/claude-skills-collection/main/README.md';
+/**
+ * Where Browse gets its list.
+ *
+ * Two shapes, because good skills are published both ways: a curated README that
+ * INDEXES other people's folders, and a repository whose own top-level folders
+ * ARE the skills. Adding a source is one line here, and nothing else in the app
+ * needs to know how many there are.
+ *
+ * Sources are indexed, never vendored. A skill stays on its author's repo under
+ * its author's licence and is fetched on the user's click, so this app never
+ * redistributes work it was not licensed to redistribute.
+ */
+export interface CatalogSource {
+  url: string;
+  /** 'table' — a README of markdown tables (parseCatalogMarkdown).
+   *  'repo'  — a GitHub repo whose top-level folders each hold a SKILL.md. */
+  kind: 'table' | 'repo';
+  /** Heading the rows file under in the UI. Repo sources fall back to the repo name. */
+  category?: string;
+}
+
+const CATALOG_SOURCES: CatalogSource[] = [
+  {
+    url: 'https://raw.githubusercontent.com/abubakarsiddik31/claude-skills-collection/main/README.md',
+    kind: 'table'
+  },
+  {
+    // Engineering-workflow skills for exactly what an agent on this floor does
+    // all day: open a PR, prove the change works, keep the review honest.
+    url: 'https://github.com/michaelshimeles/skills',
+    kind: 'repo',
+    category: 'Engineering workflow'
+  }
+];
+
 /** A curated list changes on a human timescale; a day-old copy is fine and keeps
  *  the tab instant on every open after the first. */
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
+/** How many top-level folders we will consider in one repo source. */
+const MAX_REPO_ENTRIES = 40;
 
 /**
  * Parse the catalog README into entries.
@@ -214,6 +249,114 @@ export function parseCatalogMarkdown(md: string): CatalogSkill[] {
 
 
 /**
+ * A repository whose top-level folders are skills → catalog rows.
+ *
+ * Two API calls (the default branch, then the root listing); every SKILL.md
+ * after that comes from raw.githubusercontent, which does NOT spend the 60
+ * requests an hour an unauthenticated app is allowed. A folder without a
+ * readable SKILL.md is not a skill and is dropped in silence — this walks
+ * someone else's repository, where tests, scripts and CI config sit next to
+ * the skills and none of them are one.
+ */
+export async function loadRepoCatalog(src: CatalogSource): Promise<CatalogSkill[]> {
+  const gh = parseGitHubSourceUrl(src.url);
+  if (!gh) return [];
+
+  let ref = gh.ref;
+  if (!ref) {
+    const meta = await getJson<{ default_branch?: string }>(
+      `https://api.github.com/repos/${gh.owner}/${gh.repo}`
+    );
+    ref = meta.default_branch || 'main';
+  }
+
+  const listing = await getJson<GhEntry[] | GhEntry>(
+    `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${gh.path ? encodeURI(gh.path) : ''}`
+    + `?ref=${encodeURIComponent(ref)}`
+  );
+  const dirs = (Array.isArray(listing) ? listing : [listing])
+    .filter((e) => e.type === 'dir' && !e.name.startsWith('.'))
+    .slice(0, MAX_REPO_ENTRIES);
+
+  const rows = await Promise.all(dirs.map(async (d): Promise<CatalogSkill | null> => {
+    const raw = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${encodeURIComponent(ref)}/`
+      + `${encodeURI(d.path)}/SKILL.md`;
+    let fm: { name?: string; description?: string };
+    try {
+      fm = parseSkillFrontmatter(await getText(raw));
+    } catch {
+      return null; // no SKILL.md → not a skill folder
+    }
+    const name = (fm.name || d.name).trim();
+    const description = (fm.description || '').trim();
+    // A row with nothing to read is worse than no row: Browse exists to be read.
+    if (!name || !description) return null;
+    return {
+      name,
+      description,
+      url: `https://github.com/${gh.owner}/${gh.repo}/tree/${ref}/${d.path}`,
+      category: src.category || gh.repo,
+      owner: gh.owner.toLowerCase()
+    };
+  }));
+
+  return rows.filter((r): r is CatalogSkill => r !== null);
+}
+
+/** One source's rows, or the reason there are none. Never throws: a source that
+ *  is down must not take the other sources' skills off the tab with it. */
+async function loadSource(src: CatalogSource): Promise<{ skills: CatalogSkill[]; error?: string }> {
+  try {
+    const skills = src.kind === 'repo'
+      ? await loadRepoCatalog(src)
+      : parseCatalogMarkdown(await getText(src.url));
+    return { skills };
+  } catch (e) {
+    return { skills: [], error: `${src.url}: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/**
+ * Rows for every source: fresh where the source answered, last-known where it
+ * did not.
+ *
+ * Without this, one source failing while another answers would hand Browse a
+ * SHORTER list that then gets cached as the current truth — the failed source's
+ * skills would vanish for a day, and nothing would say why. Carrying its last
+ * rows forward is honest: they are what that source said the last time it spoke.
+ *
+ * Pure, so the rule can be tested without a network.
+ */
+export function resolveBatches(
+  sources: { url: string }[],
+  results: { skills: CatalogSkill[]; error?: string }[],
+  cachedBySource?: Record<string, CatalogSkill[]>
+): Record<string, CatalogSkill[]> {
+  const out: Record<string, CatalogSkill[]> = {};
+  sources.forEach((src, i) => {
+    const r = results[i];
+    out[src.url] = r && !r.error ? r.skills : (cachedBySource?.[src.url] ?? []);
+  });
+  return out;
+}
+
+/** Merge the sources in declared order, first mention of a (name, url) winning,
+ *  so two lists carrying the same skill produce one row rather than a duplicate. */
+export function mergeCatalogs(batches: CatalogSkill[][]): CatalogSkill[] {
+  const seen = new Set<string>();
+  const out: CatalogSkill[] = [];
+  for (const batch of batches) {
+    for (const s of batch) {
+      const key = `${s.name.toLowerCase()}|${s.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+/**
  * The catalog, from cache when fresh and from the network otherwise. A failed
  * refresh falls back to whatever is cached — an offline user still gets to
  * browse, flagged as stale, instead of an empty tab and no explanation.
@@ -222,7 +365,9 @@ export async function loadCatalog(
   cachePath: string,
   opts: { force?: boolean } = {}
 ): Promise<{ skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string }> {
-  let cached: { skills: CatalogSkill[]; fetchedAt: number } | null = null;
+  // `bySource` is what makes a partial refresh survivable. A cache written by an
+  // older build simply does not have it, and carries nothing forward.
+  let cached: { skills: CatalogSkill[]; fetchedAt: number; bySource?: Record<string, CatalogSkill[]> } | null = null;
   try {
     if (existsSync(cachePath)) cached = JSON.parse(readFileSync(cachePath, 'utf8'));
   } catch { cached = null; }
@@ -230,24 +375,34 @@ export async function loadCatalog(
   const fresh = cached && Date.now() - cached.fetchedAt < CATALOG_TTL_MS;
   if (fresh && !opts.force) return { skills: cached!.skills, fetchedAt: cached!.fetchedAt, stale: false };
 
-  try {
-    const md = await getText(CATALOG_URL);
-    const skills = parseCatalogMarkdown(md);
-    // An empty parse means the README's shape changed under us. Keep the cache.
-    if (skills.length === 0 && cached) {
-      return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error: 'catalog format changed' };
-    }
-    const payload = { skills, fetchedAt: Date.now() };
-    try {
-      mkdirSync(dirname(cachePath), { recursive: true });
-      writeFileSync(cachePath, JSON.stringify(payload));
-    } catch { /* cache is an optimisation, not a requirement */ }
-    return { ...payload, stale: false };
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e);
+  const results = await Promise.all(CATALOG_SOURCES.map(loadSource));
+  const bySource = resolveBatches(CATALOG_SOURCES, results, cached?.bySource);
+  const skills = mergeCatalogs(CATALOG_SOURCES.map((src) => bySource[src.url]));
+  const failed = results.filter((r) => r.error);
+
+  // Nothing anywhere: every source is unreachable, or they all changed shape
+  // under us. Either way a day-old cache beats an empty tab and no explanation.
+  if (skills.length === 0) {
+    const error = failed.map((r) => r.error).join('; ') || 'catalog format changed';
     if (cached) return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error };
     return { skills: [], fetchedAt: 0, stale: true, error };
   }
+
+  // Only a CLEAN refresh becomes the record. A partial one is served to this
+  // open and then forgotten, so the next open retries the source that failed
+  // instead of inheriting its hole for the rest of the day.
+  if (failed.length > 0) {
+    return { skills, fetchedAt: cached?.fetchedAt ?? Date.now(), stale: false };
+  }
+
+  // A source that failed stays quiet in the UI: `error` is phrased there as
+  // "showing a cached copy", which would be a lie about rows that are current.
+  const payload = { skills, fetchedAt: Date.now(), bySource };
+  try {
+    mkdirSync(dirname(cachePath), { recursive: true });
+    writeFileSync(cachePath, JSON.stringify(payload));
+  } catch { /* cache is an optimisation, not a requirement */ }
+  return { skills, fetchedAt: payload.fetchedAt, stale: false };
 }
 
 /* ── Install / uninstall ──────────────────────────────────────────────────────

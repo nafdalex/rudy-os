@@ -38,7 +38,9 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
   const [query, setQuery] = useState('');
   const [local, setLocal] = useState<LocalSkill[] | null>(null);
   const [catalog, setCatalog] = useState<CatalogSkill[] | null>(null);
-  const [catalogMeta, setCatalogMeta] = useState<{ stale: boolean; error?: string; fetchedAt: number } | null>(null);
+  const [catalogMeta, setCatalogMeta] = useState<
+    { stale: boolean; error?: string; fetchedAt: number; sources: string[] } | null
+  >(null);
   const [owner, setOwner] = useState<string>('all');
   const [category, setCategory] = useState<string>('all');
   const [busy, setBusy] = useState(false);
@@ -58,10 +60,10 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
     try {
       const res = await window.cth.skillsCatalog(force);
       setCatalog(res.skills);
-      setCatalogMeta({ stale: res.stale, error: res.error, fetchedAt: res.fetchedAt });
+      setCatalogMeta({ stale: res.stale, error: res.error, fetchedAt: res.fetchedAt, sources: res.sources });
     } catch {
       setCatalog([]);
-      setCatalogMeta({ stale: true, error: 'could not reach the catalog', fetchedAt: 0 });
+      setCatalogMeta({ stale: true, error: 'could not reach the catalog', fetchedAt: 0, sources: [] });
     } finally { setBusy(false); }
   }, []);
 
@@ -299,12 +301,15 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
                 marginBottom: 8, padding: 8, fontSize: 12, color: 'var(--cth-ink-900)',
                 background: 'var(--cth-coral-light)', boxShadow: 'inset 0 0 0 1px var(--cth-coral)'
               }}>
-                Showing a cached copy.{catalogMeta.error}.
+                {catalogMeta.stale
+                  ? 'Showing a cached copy.'
+                  : 'One source did not answer, so this list may be short.'}{' '}
+                {catalogMeta.error}.
               </div>
             )}
             <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginBottom: 8 }}>
               {totalMatching} matching{totalMatching > shownCatalog.length ? ` · showing the first ${shownCatalog.length}` : ''}
-              {' · '}curated by abubakarsiddik31/claude-skills-collection
+              {catalogMeta?.sources.length ? ` · curated by ${catalogMeta.sources.join(', ')}` : ''}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {shownCatalog.map((s) => (

@@ -10,11 +10,14 @@
  *     `description`. OpenCode and Codex use plugin/config directories instead,
  *     so they are reported as plugins rather than pretending they share a format.
  *
- *  2. CATALOG — abubakarsiddik31/claude-skills-collection: 227 skills in 13
- *     categories, as markdown tables with a GitHub source link per row. It has no
- *     JSON index (checked), so entries are parsed from the raw markdown and
- *     cached on disk. Network failure is never fatal: a stale cache, then an
- *     empty list, then the UI says so.
+ *  2. CATALOG — several public sources merged into one browsable list. Two
+ *     shapes are read: a curated INDEX of markdown tables carrying a GitHub link
+ *     per row (it has no JSON index, checked, so rows are parsed from the raw
+ *     markdown), and a REPOSITORY whose top-level folders are themselves skills.
+ *     The result is cached on disk. Network failure is never fatal, and one
+ *     source failing must never take another source's skills off the tab: a
+ *     source keeps its last-known rows, then a stale cache, then an empty list,
+ *     and the UI says which of the three it is showing.
  *
  * Nothing here installs anything. Discovery and browsing only — installing a
  * third-party skill means running someone else's instructions inside an agent
@@ -170,19 +173,24 @@ export interface CatalogSource {
   kind: 'table' | 'repo';
   /** Heading the rows file under in the UI. Repo sources fall back to the repo name. */
   category?: string;
+  /** Who Browse credits underneath the list. The URL cannot stand in for it: one
+   *  source is a raw file path, the other a repo root. */
+  label: string;
 }
 
 const CATALOG_SOURCES: CatalogSource[] = [
   {
     url: 'https://raw.githubusercontent.com/abubakarsiddik31/claude-skills-collection/main/README.md',
-    kind: 'table'
+    kind: 'table',
+    label: 'abubakarsiddik31/claude-skills-collection'
   },
   {
     // Engineering-workflow skills for exactly what an agent on this floor does
     // all day: open a PR, prove the change works, keep the review honest.
     url: 'https://github.com/michaelshimeles/skills',
     kind: 'repo',
-    category: 'Engineering workflow'
+    category: 'Engineering workflow',
+    label: 'michaelshimeles/skills'
   }
 ];
 
@@ -340,6 +348,32 @@ export function resolveBatches(
   return out;
 }
 
+/**
+ * The rows a cache holds but cannot attribute, for the one case that needs them.
+ *
+ * A cache written before per-source attribution existed knows every row and none
+ * of their sources, so on the FIRST refresh after an upgrade there is nothing to
+ * carry forward and a source failing right then would still drop its skills for
+ * that open. This hands back the flat list so the caller can merge it LAST,
+ * where order lets every fresh row win: it can only fill a gap, never override a
+ * source that answered.
+ *
+ * Deliberately narrow. It returns nothing at all unless a source actually failed
+ * AND came back with no rows AND the cache predates attribution, because outside
+ * that window an unattributed row could resurrect a skill a healthy source had
+ * quite deliberately removed.
+ */
+export function unattributedRows(
+  sources: { url: string }[],
+  bySource: Record<string, CatalogSkill[]>,
+  cached: { skills: CatalogSkill[]; bySource?: Record<string, CatalogSkill[]> } | null,
+  anyFailed: boolean
+): CatalogSkill[] {
+  if (!anyFailed || !cached || cached.bySource) return [];
+  const empty = sources.some((src) => (bySource[src.url] ?? []).length === 0);
+  return empty ? cached.skills : [];
+}
+
 /** Merge the sources in declared order, first mention of a (name, url) winning,
  *  so two lists carrying the same skill produce one row rather than a duplicate. */
 export function mergeCatalogs(batches: CatalogSkill[][]): CatalogSkill[] {
@@ -364,45 +398,64 @@ export function mergeCatalogs(batches: CatalogSkill[][]): CatalogSkill[] {
 export async function loadCatalog(
   cachePath: string,
   opts: { force?: boolean } = {}
-): Promise<{ skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string }> {
+): Promise<{
+  skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string; sources: string[];
+}> {
+  const sources = CATALOG_SOURCES.map((src) => src.label);
+
   // `bySource` is what makes a partial refresh survivable. A cache written by an
-  // older build simply does not have it, and carries nothing forward.
+  // older build simply does not have it, and is handled below.
   let cached: { skills: CatalogSkill[]; fetchedAt: number; bySource?: Record<string, CatalogSkill[]> } | null = null;
   try {
     if (existsSync(cachePath)) cached = JSON.parse(readFileSync(cachePath, 'utf8'));
   } catch { cached = null; }
 
   const fresh = cached && Date.now() - cached.fetchedAt < CATALOG_TTL_MS;
-  if (fresh && !opts.force) return { skills: cached!.skills, fetchedAt: cached!.fetchedAt, stale: false };
+  if (fresh && !opts.force) {
+    return { skills: cached!.skills, fetchedAt: cached!.fetchedAt, stale: false, sources };
+  }
 
   const results = await Promise.all(CATALOG_SOURCES.map(loadSource));
   const bySource = resolveBatches(CATALOG_SOURCES, results, cached?.bySource);
-  const skills = mergeCatalogs(CATALOG_SOURCES.map((src) => bySource[src.url]));
   const failed = results.filter((r) => r.error);
+
+  const skills = mergeCatalogs([
+    ...CATALOG_SOURCES.map((src) => bySource[src.url]),
+    unattributedRows(CATALOG_SOURCES, bySource, cached, failed.length > 0)
+  ]);
 
   // Nothing anywhere: every source is unreachable, or they all changed shape
   // under us. Either way a day-old cache beats an empty tab and no explanation.
   if (skills.length === 0) {
     const error = failed.map((r) => r.error).join('; ') || 'catalog format changed';
-    if (cached) return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error };
-    return { skills: [], fetchedAt: 0, stale: true, error };
+    if (cached) return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error, sources };
+    return { skills: [], fetchedAt: 0, stale: true, error, sources };
   }
 
   // Only a CLEAN refresh becomes the record. A partial one is served to this
   // open and then forgotten, so the next open retries the source that failed
   // instead of inheriting its hole for the rest of the day.
+  //
+  // It is also SAID, every time. Carrying rows forward keeps the list long, but
+  // the rows are as old as the last time that source spoke, and a source added
+  // since the cache was written has none to carry at all — so a partial list
+  // must never be presented as the whole current catalog with nothing amiss.
   if (failed.length > 0) {
-    return { skills, fetchedAt: cached?.fetchedAt ?? Date.now(), stale: false };
+    return {
+      skills,
+      fetchedAt: cached?.fetchedAt ?? Date.now(),
+      stale: false,
+      error: failed.map((r) => r.error).join('; '),
+      sources
+    };
   }
 
-  // A source that failed stays quiet in the UI: `error` is phrased there as
-  // "showing a cached copy", which would be a lie about rows that are current.
   const payload = { skills, fetchedAt: Date.now(), bySource };
   try {
     mkdirSync(dirname(cachePath), { recursive: true });
     writeFileSync(cachePath, JSON.stringify(payload));
   } catch { /* cache is an optimisation, not a requirement */ }
-  return { skills, fetchedAt: payload.fetchedAt, stale: false };
+  return { skills, fetchedAt: payload.fetchedAt, stale: false, sources };
 }
 
 /* ── Install / uninstall ──────────────────────────────────────────────────────

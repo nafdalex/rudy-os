@@ -9,7 +9,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
-const { parseCatalogMarkdown, parseSkillFrontmatter, mergeCatalogs, resolveBatches } = loadTs('src/main/skills.ts');
+const {
+  parseCatalogMarkdown, parseSkillFrontmatter, mergeCatalogs, resolveBatches, unattributedRows
+} = loadTs('src/main/skills.ts');
 
 const MD = [
   '## 📈 Overview',
@@ -167,4 +169,64 @@ test('a source that answers replaces its cached rows rather than merging with th
 test('a source that fails with nothing cached contributes nothing, not a crash', () => {
   const batches = resolveBatches([SOURCES[1]], [{ skills: [], error: 'offline' }], undefined);
   assert.deepEqual(batches[SOURCES[1].url], []);
+});
+
+/* ── The upgrade window ───────────────────────────────────────────────────────
+ *
+ * Attribution is new. Every cache written before it holds the rows and no idea
+ * which source each came from, so the first refresh after an upgrade is the one
+ * moment carry-forward has nothing to carry — and a source failing exactly then
+ * would drop its skills anyway. These pin the narrow rescue and, just as much,
+ * its narrowness.
+ */
+
+const LEGACY = {
+  skills: [
+    row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx'),
+    row('greploop', 'https://github.com/someone/skills/tree/main/greploop')
+  ]
+};
+
+test('an upgrade cache rescues a failed source that has nothing attributed', () => {
+  const bySource = resolveBatches(
+    SOURCES,
+    [{ skills: [row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx')] }, { skills: [], error: 'rate limited' }],
+    undefined
+  );
+  const merged = mergeCatalogs([
+    ...SOURCES.map((s) => bySource[s.url]),
+    unattributedRows(SOURCES, bySource, LEGACY, true)
+  ]);
+  assert.deepEqual(merged.map((s) => s.name), ['docx', 'greploop']);
+});
+
+test('the rescued rows go last, so a source that answered still wins', () => {
+  const fresh = row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx');
+  fresh.description = 'the current description';
+  const bySource = resolveBatches(SOURCES, [{ skills: [fresh] }, { skills: [], error: 'offline' }], undefined);
+  const merged = mergeCatalogs([
+    ...SOURCES.map((s) => bySource[s.url]),
+    unattributedRows(SOURCES, bySource, LEGACY, true)
+  ]);
+  assert.equal(merged.find((s) => s.name === 'docx').description, 'the current description');
+});
+
+test('a clean refresh never resurrects a row an upgrade cache still holds', () => {
+  const bySource = resolveBatches(
+    SOURCES,
+    [{ skills: [row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx')] }, { skills: [] }],
+    undefined
+  );
+  assert.deepEqual(unattributedRows(SOURCES, bySource, LEGACY, false), []);
+});
+
+test('a cache that carries attribution does not fall back to its flat list', () => {
+  const cached = { skills: LEGACY.skills, bySource: { 'https://github.com/someone/skills': [] } };
+  const bySource = resolveBatches(SOURCES, [{ skills: [] }, { skills: [], error: 'offline' }], cached.bySource);
+  assert.deepEqual(unattributedRows(SOURCES, bySource, cached, true), []);
+});
+
+test('no cache at all leaves a failed source with nothing to rescue', () => {
+  const bySource = resolveBatches(SOURCES, [{ skills: [] }, { skills: [], error: 'offline' }], undefined);
+  assert.deepEqual(unattributedRows(SOURCES, bySource, null, true), []);
 });

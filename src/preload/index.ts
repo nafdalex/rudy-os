@@ -296,12 +296,6 @@ export interface HarnessConfig {
   slackChannelId?: string;
   slackPort?: number;
   slackProactivePosting?: boolean;
-  /** iMessage via Photon. The project SECRET is deliberately absent — it is
-   *  write-only in the broker and never crosses this boundary. */
-  photonEnabled?: boolean;
-  photonProjectId?: string;
-  photonAllowlist?: string[];
-  photonTriggerMode?: 'strict' | 'allow-all' | 'communication-only';
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
@@ -788,7 +782,7 @@ const api = {
   skillsLocal: (cwd?: string): Promise<LocalSkill[]> => ipcRenderer.invoke('skills:local', cwd),
   /** The browsable skills catalog (cached; `force` re-fetches). */
   skillsCatalog: (force?: boolean): Promise<{
-    skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string;
+    skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string; sources: string[];
   }> => ipcRenderer.invoke('skills:catalog', force),
   /** Install a catalog skill into ~/.claude/skills. `unsupported` distinguishes
    *  "there is no downloadable source" from "the download failed". */
@@ -1154,29 +1148,6 @@ const api = {
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:setConfig', patch),
 
-  // ─── iMessage via Photon (text → Rudy's queue) ────────────────────────────
-  /** Open the iMessage channel. Nothing to paste anywhere afterwards: the
-   *  connection dials OUT, so there is no URL and no tunnel. */
-  photonStart: (): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('photon:start'),
-  photonStop: (): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke('photon:stop'),
-  /** Live state + whether a project secret is stored (never the secret itself). */
-  photonStatus: (): Promise<{ running: boolean; hasSecret: boolean }> =>
-    ipcRenderer.invoke('photon:status'),
-  /** WRITE-ONLY. The secret is encrypted in main and can never be read back;
-   *  to change it the user pastes a new one. */
-  photonSetSecret: (secret: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('photon:setSecret', { secret }),
-  photonClearSecret: (): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke('photon:clearSecret'),
-  /** Persist settings (and close the line if disabled / allowlist emptied). */
-  photonSetConfig: (patch: {
-    projectId?: string; allowlist?: string[]; enabled?: boolean;
-    mode?: 'strict' | 'allow-all' | 'communication-only';
-  }): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke('photon:setConfig', patch),
-
   // ─── Generic webhook + status API (POST → work, GET → status) ────────────────
   /** Start the generic webhook server; returns the public endpoint URL callers
    *  POST to (secret-gated) and GET a token's status from. */
@@ -1251,7 +1222,7 @@ const api = {
   decideTriggerHistory: (arg: { id: string; decision: 'approved' | 'rejected' }): Promise<TriggerHistoryEntry | null> =>
     ipcRenderer.invoke('triggerHistory:decide', arg),
   /** Wipe the ledger, or just one source's half of it. */
-  clearTriggerHistory: (source?: 'webhook' | 'org' | 'imessage'): Promise<void> =>
+  clearTriggerHistory: (source?: 'webhook' | 'org'): Promise<void> =>
     ipcRenderer.invoke('triggerHistory:clear', source),
   /** Fires whenever the ledger changes (an inbound arrived, a verdict landed, a
    *  reply was paired), so the history tab live-refreshes. */

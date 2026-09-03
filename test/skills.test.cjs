@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
-const { parseCatalogMarkdown, parseSkillFrontmatter, mergeCatalogs } = loadTs('src/main/skills.ts');
+const { parseCatalogMarkdown, parseSkillFrontmatter, mergeCatalogs, resolveBatches } = loadTs('src/main/skills.ts');
 
 const MD = [
   '## 📈 Overview',
@@ -131,4 +131,40 @@ test('same name at a different url is a different skill, not a duplicate', () =>
 test('an empty source cannot erase the sources around it', () => {
   const merged = mergeCatalogs([[], [row('docx', 'https://github.com/a/b/tree/main/docx')], []]);
   assert.deepEqual(merged.map((s) => s.name), ['docx']);
+});
+
+/* ── A source going down ────────────────────────────────────────────────────
+ *
+ * The silent failure this pins: one source failing while another answers used
+ * to hand Browse the shorter list AND cache it as current, so the failed
+ * source's skills disappeared for a day even after it came back.
+ */
+
+const SOURCES = [{ url: 'https://example.com/curated.md' }, { url: 'https://github.com/someone/skills' }];
+
+test('a failed source keeps its last-known rows instead of vanishing', () => {
+  const cachedBySource = {
+    'https://github.com/someone/skills': [row('greploop', 'https://github.com/someone/skills/tree/main/greploop')]
+  };
+  const batches = resolveBatches(
+    SOURCES,
+    [{ skills: [row('docx', 'https://github.com/anthropics/skills/tree/main/skills/docx')] }, { skills: [], error: 'rate limited' }],
+    cachedBySource
+  );
+  const merged = mergeCatalogs(SOURCES.map((s) => batches[s.url]));
+  assert.deepEqual(merged.map((s) => s.name), ['docx', 'greploop']);
+});
+
+test('a source that answers replaces its cached rows rather than merging with them', () => {
+  const batches = resolveBatches(
+    [SOURCES[1]],
+    [{ skills: [row('new-feature', 'https://github.com/someone/skills/tree/main/new-feature')] }],
+    { 'https://github.com/someone/skills': [row('retired', 'https://github.com/someone/skills/tree/main/retired')] }
+  );
+  assert.deepEqual(batches[SOURCES[1].url].map((s) => s.name), ['new-feature']);
+});
+
+test('a source that fails with nothing cached contributes nothing, not a crash', () => {
+  const batches = resolveBatches([SOURCES[1]], [{ skills: [], error: 'offline' }], undefined);
+  assert.deepEqual(batches[SOURCES[1].url], []);
 });

@@ -316,6 +316,30 @@ async function loadSource(src: CatalogSource): Promise<{ skills: CatalogSkill[];
   }
 }
 
+/**
+ * Rows for every source: fresh where the source answered, last-known where it
+ * did not.
+ *
+ * Without this, one source failing while another answers would hand Browse a
+ * SHORTER list that then gets cached as the current truth — the failed source's
+ * skills would vanish for a day, and nothing would say why. Carrying its last
+ * rows forward is honest: they are what that source said the last time it spoke.
+ *
+ * Pure, so the rule can be tested without a network.
+ */
+export function resolveBatches(
+  sources: { url: string }[],
+  results: { skills: CatalogSkill[]; error?: string }[],
+  cachedBySource?: Record<string, CatalogSkill[]>
+): Record<string, CatalogSkill[]> {
+  const out: Record<string, CatalogSkill[]> = {};
+  sources.forEach((src, i) => {
+    const r = results[i];
+    out[src.url] = r && !r.error ? r.skills : (cachedBySource?.[src.url] ?? []);
+  });
+  return out;
+}
+
 /** Merge the sources in declared order, first mention of a (name, url) winning,
  *  so two lists carrying the same skill produce one row rather than a duplicate. */
 export function mergeCatalogs(batches: CatalogSkill[][]): CatalogSkill[] {
@@ -341,7 +365,9 @@ export async function loadCatalog(
   cachePath: string,
   opts: { force?: boolean } = {}
 ): Promise<{ skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string }> {
-  let cached: { skills: CatalogSkill[]; fetchedAt: number } | null = null;
+  // `bySource` is what makes a partial refresh survivable. A cache written by an
+  // older build simply does not have it, and carries nothing forward.
+  let cached: { skills: CatalogSkill[]; fetchedAt: number; bySource?: Record<string, CatalogSkill[]> } | null = null;
   try {
     if (existsSync(cachePath)) cached = JSON.parse(readFileSync(cachePath, 'utf8'));
   } catch { cached = null; }
@@ -350,25 +376,33 @@ export async function loadCatalog(
   if (fresh && !opts.force) return { skills: cached!.skills, fetchedAt: cached!.fetchedAt, stale: false };
 
   const results = await Promise.all(CATALOG_SOURCES.map(loadSource));
-  const skills = mergeCatalogs(results.map((r) => r.skills));
+  const bySource = resolveBatches(CATALOG_SOURCES, results, cached?.bySource);
+  const skills = mergeCatalogs(CATALOG_SOURCES.map((src) => bySource[src.url]));
+  const failed = results.filter((r) => r.error);
 
   // Nothing anywhere: every source is unreachable, or they all changed shape
   // under us. Either way a day-old cache beats an empty tab and no explanation.
   if (skills.length === 0) {
-    const error = results.map((r) => r.error).filter(Boolean).join('; ') || 'catalog format changed';
+    const error = failed.map((r) => r.error).join('; ') || 'catalog format changed';
     if (cached) return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error };
     return { skills: [], fetchedAt: 0, stale: true, error };
   }
 
-  // A source that failed while others answered stays quiet: the tab is not
-  // stale, and the UI phrases `error` as "showing a cached copy", which would
-  // be a lie about the rows the user is looking at.
-  const payload = { skills, fetchedAt: Date.now() };
+  // Only a CLEAN refresh becomes the record. A partial one is served to this
+  // open and then forgotten, so the next open retries the source that failed
+  // instead of inheriting its hole for the rest of the day.
+  if (failed.length > 0) {
+    return { skills, fetchedAt: cached?.fetchedAt ?? Date.now(), stale: false };
+  }
+
+  // A source that failed stays quiet in the UI: `error` is phrased there as
+  // "showing a cached copy", which would be a lie about rows that are current.
+  const payload = { skills, fetchedAt: Date.now(), bySource };
   try {
     mkdirSync(dirname(cachePath), { recursive: true });
     writeFileSync(cachePath, JSON.stringify(payload));
   } catch { /* cache is an optimisation, not a requirement */ }
-  return { ...payload, stale: false };
+  return { skills, fetchedAt: payload.fetchedAt, stale: false };
 }
 
 /* ── Install / uninstall ──────────────────────────────────────────────────────
